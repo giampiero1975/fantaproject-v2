@@ -1,0 +1,5 @@
+eclipse.preferences.version=1
+encoding//app/Console/Commands/Extraction/DebugFbrefExtraction.php=UTF-8
+encoding//app/Console/Commands/Extraction/DebugFbrefExtractionHtml.php=UTF-8
+encoding//app/Console/Commands/Extraction/DebugScrapeTeamCommand.php=UTF-8
+encoding//app/Services/TeamDataService.php=UTF-8
