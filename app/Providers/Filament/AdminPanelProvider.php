@@ -33,12 +33,12 @@ class AdminPanelProvider extends PanelProvider
         ->discoverResources(in: app_path('Filament/Resources'), for: 'App\\Filament\\Resources')
         ->discoverPages(in: app_path('Filament/Pages'), for: 'App\\Filament\\Pages')
         ->pages([
-            Pages\Dashboard::class,
+            \App\Filament\Pages\Dashboard::class,
         ])
         ->discoverWidgets(in: app_path('Filament/Widgets'), for: 'App\\Filament\\Widgets')
         ->widgets([
-            Widgets\AccountWidget::class,
-            Widgets\FilamentInfoWidget::class,
+            // Widget di default Filament rimossi intenzionalmente.
+            // La dashboard è gestita dai widget custom (SetupStepsOverview, SyncCoverageStats).
         ])
         ->middleware([
             EncryptCookies::class,
@@ -55,7 +55,11 @@ class AdminPanelProvider extends PanelProvider
             Authenticate::class,
         ])
         ->sidebarCollapsibleOnDesktop()
+        ->userMenuItems([
+            'logout' => \Filament\Navigation\MenuItem::make()->label('Esci'),
+        ])
         ->navigationGroups([
+            'Setup Dati',
             'Analisi & Diagnostica',
             'Core Logic',
             'Configurazioni',

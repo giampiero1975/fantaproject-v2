@@ -38,6 +38,16 @@ return [
             'report' => false,
         ],
 
+        // Dedicated disk for Livewire temporary file uploads.
+        // Livewire's TemporaryUploadedFile resolves paths relative to this root.
+        // Laravel 11 moved 'local' root to app/private, so Livewire needs its own disk.
+        'livewire' => [
+            'driver' => 'local',
+            'root'   => storage_path('app'),
+            'throw'  => false,
+            'report' => false,
+        ],
+
         'public' => [
             'driver' => 'local',
             'root' => storage_path('app/public'),

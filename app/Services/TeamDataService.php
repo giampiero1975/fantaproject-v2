@@ -365,4 +365,224 @@ class TeamDataService
         }
         return 5;
     }
+
+    // ─── API football-data.org ───────────────────────────────────────────────
+
+    /**
+     * Recupera la rosa di una squadra dall'API football-data.org.
+     * Endpoint: GET /v4/teams/{id}  →  field: squad[]
+     *
+     * @param  int $apiTeamId  Il valore di teams.api_football_data_id
+     * @return array           Array di giocatori: [id, name, position, dateOfBirth, ...]
+     */
+    public function getSquad(int $apiTeamId): array
+    {
+        $apiKey = config('services.player_stats_api.providers.football_data_org.api_key');
+
+        if (empty($apiKey)) {
+            \Illuminate\Support\Facades\Log::error('TeamDataService::getSquad — FOOTBALL_DATA_API_KEY non configurata in .env');
+            return [];
+        }
+
+        $url = "https://api.football-data.org/v4/teams/{$apiTeamId}";
+
+        try {
+            $response = \Illuminate\Support\Facades\Http::withHeaders([
+                'X-Auth-Token' => $apiKey,
+            ])->timeout(15)->get($url);
+
+            if ($response->failed()) {
+                \Illuminate\Support\Facades\Log::warning(
+                    "TeamDataService::getSquad — HTTP {$response->status()} per teamId={$apiTeamId}"
+                );
+                return [];
+            }
+
+            $data = $response->json();
+            return $data['squad'] ?? [];
+
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error(
+                "TeamDataService::getSquad — Exception per teamId={$apiTeamId}: " . $e->getMessage()
+            );
+            return [];
+        }
+    }
+
+    // ─── Importazione Anagrafica Squadre ────────────────────────────────────────
+
+    /**
+     * Importa (o aggiorna) le squadre di Serie A da football-data.org.
+     *
+     * Endpoint: GET /v4/competitions/SA/teams?season={season_year}
+     * Log:      storage/logs/Roster/TeamsImport.log
+     * Protocol: import_logs → in_corso → successo/errore
+     * Schema:   usa SOLO colonne confermate da DESCRIBE import_logs
+     *
+     * @return array ['created' => int, 'updated' => int]
+     */
+    public function importTeamsFromApi(): array
+    {
+        // ── Logger dedicato ───────────────────────────────────────────────────
+        // Path: storage/logs/Squadre/ (convenzione: Squadre/ per squadre, Roster/ per giocatori)
+        $logDir = storage_path('logs/Squadre');
+        if (!is_dir($logDir)) {
+            mkdir($logDir, 0755, true);
+        }
+        $logger = Log::build([
+            'driver' => 'single',
+            'path'   => $logDir . '/SquadreImport.log',
+        ]);
+
+        $currentYear  = (int) date('Y');
+        $targetSeason = $currentYear - 1; // start-year convention: 2025 = stagione 2025/26
+
+        $logger->info('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        $logger->info("🚀 AVVIO importTeamsFromApi — stagione target: {$targetSeason}");
+
+        // ── Apri record import_logs (solo colonne esistenti) ──────────────────
+        $importLogId = DB::table('import_logs')->insertGetId([
+            'original_file_name' => "football-data.org /v4/competitions/SA/teams?season={$targetSeason}",
+            'import_type'        => 'teams_api',
+            'status'             => 'in_corso',
+            'rows_processed'     => 0,
+            'rows_created'       => 0,
+            'rows_updated'       => 0,
+            'created_at'         => now(),
+            'updated_at'         => now(),
+        ]);
+        $logger->info("📋 ImportLog #{$importLogId} creato — status: in_corso");
+
+        // ── API Key ───────────────────────────────────────────────────────────
+        $apiKey = config('services.player_stats_api.providers.football_data_org.api_key');
+        if (empty($apiKey)) {
+            $msg = 'FOOTBALL_DATA_API_KEY non configurata in .env';
+            $logger->error("❌ {$msg}");
+            DB::table('import_logs')->where('id', $importLogId)->update([
+                'status'     => 'errore',
+                'details'    => $msg,
+                'updated_at' => now(),
+            ]);
+            throw new \Exception($msg);
+        }
+
+        // ── Chiamata API ──────────────────────────────────────────────────────
+        $url = "https://api.football-data.org/v4/competitions/SA/teams?season={$targetSeason}";
+        $logger->info("🌐 GET {$url}");
+
+        try {
+            $response = Http::withHeaders(['X-Auth-Token' => $apiKey])->timeout(20)->get($url);
+        } catch (\Throwable $e) {
+            $logger->error("❌ Eccezione HTTP: " . $e->getMessage());
+            DB::table('import_logs')->where('id', $importLogId)->update([
+                'status'     => 'errore',
+                'details'    => $e->getMessage(),
+                'updated_at' => now(),
+            ]);
+            throw new \Exception("Errore connessione football-data.org: " . $e->getMessage());
+        }
+
+        if ($response->failed()) {
+            $msg = "HTTP {$response->status()} da football-data.org";
+            $logger->error("❌ {$msg}");
+            DB::table('import_logs')->where('id', $importLogId)->update([
+                'status'     => 'errore',
+                'details'    => $msg,
+                'updated_at' => now(),
+            ]);
+            throw new \Exception($msg);
+        }
+
+        $fullResponse = $response->json();
+        $teams = $fullResponse['teams'] ?? [];
+        $logger->info("✅ Risposta OK — Squadre ricevute: " . count($teams));
+
+        // ── DUMP DIAGNOSTICO — oggetto competition e season dall'API ─────────
+        $competition = $fullResponse['competition'] ?? [];
+        $season      = $fullResponse['season']      ?? $fullResponse['filters'] ?? [];
+        $logger->info("📡 COMPETITION: " . json_encode($competition, JSON_UNESCAPED_UNICODE));
+        $logger->info("📡 SEASON/FILTERS: " . json_encode($season, JSON_UNESCAPED_UNICODE));
+        $logger->info("📡 PRIME 3 SQUADRE RAW:");
+        foreach (array_slice($teams, 0, 3) as $t) {
+            $logger->info("   " . json_encode([
+                'id'        => $t['id']       ?? null,
+                'name'      => $t['name']     ?? null,
+                'shortName' => $t['shortName'] ?? null,
+                'tla'       => $t['tla']       ?? null,
+            ], JSON_UNESCAPED_UNICODE));
+        }
+        // ── FINE DUMP ─────────────────────────────────────────────────────────
+
+        if (empty($teams)) {
+            $msg = "Nessuna squadra per stagione {$targetSeason}";
+            $logger->warning("⚠️ {$msg}");
+            DB::table('import_logs')->where('id', $importLogId)->update([
+                'status'     => 'warning',
+                'details'    => $msg,
+                'updated_at' => now(),
+            ]);
+            return ['created' => 0, 'updated' => 0];
+        }
+
+        // ── Upsert squadre ────────────────────────────────────────────────────
+        $logger->info(str_repeat('─', 55));
+        $created = 0;
+        $updated = 0;
+
+        foreach ($teams as $apiTeam) {
+            $apiId     = $apiTeam['id']       ?? null;
+            $name      = $apiTeam['name']      ?? null;
+            $shortName = $apiTeam['shortName'] ?? $apiTeam['tla'] ?? $name;
+            $crest     = $apiTeam['crest']     ?? null;
+            $tla       = $apiTeam['tla']       ?? null;
+
+            if (!$apiId || !$name) {
+                $logger->warning("⚠️ Saltata — id/name mancanti");
+                continue;
+            }
+
+            $existing = DB::table('teams')->where('api_football_data_id', $apiId)->first()
+                ?? DB::table('teams')->where('name', $name)->first();
+
+            $payload = [
+                'name'                 => $name,
+                'short_name'           => $shortName,
+                'api_football_data_id' => $apiId,
+                'season_year'          => $targetSeason,
+                'serie_a_team'         => 1,
+                'crest_url'            => $crest,
+                'tla'                  => $tla,
+                'updated_at'           => now(),
+            ];
+
+            if ($existing) {
+                DB::table('teams')->where('id', $existing->id)->update($payload);
+                $updated++;
+                $logger->info("🔄 AGGIORNATA: [{$existing->id}] {$name} (API ID: {$apiId})");
+            } else {
+                $payload['created_at'] = now();
+                DB::table('teams')->insert($payload);
+                $created++;
+                $logger->info("✅ CREATA:     {$name} (API ID: {$apiId})");
+            }
+        }
+
+        $total = $created + $updated;
+        $logger->info(str_repeat('─', 55));
+        $logger->info("🏁 FINE — Creati: {$created} | Aggiornati: {$updated} | Totale: {$total}");
+
+        // ── Chiudi import_logs (solo colonne esistenti) ───────────────────────
+        DB::table('import_logs')->where('id', $importLogId)->update([
+            'status'         => 'successo',
+            'rows_processed' => $total,
+            'rows_created'   => $created,
+            'rows_updated'   => $updated,
+            'details'        => "Stagione {$targetSeason}: {$created} create, {$updated} aggiornate",
+            'updated_at'     => now(),
+        ]);
+        $logger->info("📋 ImportLog #{$importLogId} — status: successo");
+        $logger->info('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+
+        return ['created' => $created, 'updated' => $updated];
+    }
 }

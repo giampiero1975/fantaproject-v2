@@ -13,7 +13,7 @@ class ListImportLogs extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
-            Actions\CreateAction::make(),
+            // Nessuna azione: i log sono generati automaticamente dal sistema
         ];
     }
 }

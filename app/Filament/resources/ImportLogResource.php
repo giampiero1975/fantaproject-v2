@@ -41,21 +41,43 @@ class ImportLogResource extends Resource
             Tables\Columns\TextColumn::make('import_type')
             ->label('Tipo')
             ->badge()
+            ->formatStateUsing(fn (string $state): string => match ($state) {
+                'teams_api'         => '1. Squadre (API)',
+                'teams_history'     => '2. Storico Squadre',
+                'teams_tiers'       => '3. Calcolo Tier',
+                'roster_quotazioni' => '4. Importazione Listone',
+                'sync_rose_api'     => '5. Sync Rose',
+                default             => $state,
+            })
             ->color(fn (string $state): string => match ($state) {
-                'teams_api' => 'warning',
-                'giocatori' => 'info',
-                'storico_classifiche' => 'success',
-                default => 'gray',
-        }),
+                'teams_api'         => 'warning',
+                'teams_history'     => 'gray',
+                'teams_tiers'       => 'primary',
+                'roster_quotazioni' => 'success',
+                'sync_rose_api'     => 'info',
+                default             => 'gray',
+            }),
         Tables\Columns\TextColumn::make('status')
-        ->label('Status')
-        ->badge()
-        ->color(fn (string $state): string => match ($state) {
-            'success', 'completed' => 'success',
-            'failed', 'error' => 'danger',
-            'processing' => 'warning',
-            default => 'gray',
-        }),
+            ->label('Status')
+            ->badge()
+            ->formatStateUsing(fn (string $state): string => match ($state) {
+                'successo'  => 'Successo',
+                'in_corso'  => 'In Corso',
+                'errore'    => 'Errore',
+                'warning'   => 'Warning',
+                default     => $state,
+            })
+            ->color(fn (string $state): string => match ($state) {
+                'successo'             => 'success',
+                'in_corso'             => 'warning',
+                'errore'               => 'danger',
+                'warning'              => 'warning',
+                // valori legacy
+                'success', 'completed' => 'success',
+                'failed', 'error'      => 'danger',
+                'processing'           => 'warning',
+                default                => 'gray',
+            }),
         Tables\Columns\TextColumn::make('rows_created') // NOME ESATTO DB
         ->label('Creati'),
         Tables\Columns\TextColumn::make('rows_updated') // NOME ESATTO DB
@@ -66,28 +88,35 @@ class ImportLogResource extends Resource
         ])
         ->filters([
             Tables\Filters\SelectFilter::make('import_type')
-            ->label('Tipo Importazione')
-            ->options([
-                'teams_api' => 'Teams API',
-                'giocatori' => 'Giocatori',
-                'storico_classifiche' => 'Storico Classifiche',
-            ]),
+                ->label('Tipo Importazione')
+                ->options([
+                    'teams_api'         => '1. Squadre (API)',
+                    'teams_history'     => '2. Storico Squadre',
+                    'teams_tiers'       => '3. Calcolo Tier',
+                    'roster_quotazioni' => '4. Importazione Listone',
+                    'sync_rose_api'     => '5. Sync Rose',
+                ]),
+            Tables\Filters\SelectFilter::make('status')
+                ->label('Status')
+                ->options([
+                    'successo' => '🟢  Successo',
+                    'in_corso' => '🟠  In Corso',
+                    'errore'   => '🔴  Errore',
+                    'warning'  => '🟡  Warning',
+                ]),
         ])
         ->defaultSort('created_at', 'desc');
     }
     public static function getRelations(): array
     {
-        return [
-            //
-        ];
+        return [];
     }
-    
+
     public static function getPages(): array
     {
         return [
             'index' => Pages\ListImportLogs::route('/'),
-            // 'create' e 'edit' non servono per i Log, meglio non averli
+            // 'create' e 'edit' rimossi: i log non si creano manualmente
         ];
     }
-
-    }
+}
