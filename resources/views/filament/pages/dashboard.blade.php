@@ -6,8 +6,8 @@
             $seasonLabel  = $targetSeason . '/' . substr((string)$currentYear, 2);
 
             // ── Stato step ──────────────────────────────────────────────────
-            $s1 = $teamTotal >= 20 ? 'ok' : ($teamTotal > 0 ? 'partial' : 'missing');
-            $s2 = !$step1Ok ? 'blocked' : ($teamWithApi >= 20 ? 'ok' : ($teamWithApi > 0 ? 'partial' : 'missing'));
+            $s1 = ($teamTotal >= 20 && $teamWithApi >= 20 && !$fbrefIncomplete) ? 'ok' : ($teamTotal > 0 ? 'partial' : 'missing');
+            $s2 = !$step1Ok ? 'blocked' : ($standingCount >= $standingTarget ? 'ok' : ($standingCount > 0 ? 'partial' : 'missing'));
             $s3 = !$step2Ok ? 'blocked' : ($teamWithTier >= 20 ? 'ok' : ($teamWithTier > 0 ? 'partial' : 'missing'));
             $s4 = !$step3Ok ? 'blocked' : ($playerFanta >= 400 ? 'ok' : ($playerFanta > 0 ? 'partial' : 'missing'));
             $s5 = !$step4Ok ? 'blocked' : ($pct >= 90 ? 'ok' : ($pct > 0 ? 'partial' : 'missing'));
@@ -53,62 +53,93 @@
         @endphp
 
         {{-- ══════════════════════════════════════════════════════════════════ --}}
-        {{-- STEP 1 — Squadre (Anagrafica & API) — FUSED                      --}}
+        {{-- STEP 1 — Consolidamento Status Bar                               --}}
         {{-- ══════════════════════════════════════════════════════════════════ --}}
-        @php
-            // Badge unificato: VERDE solo se entrambi 20/20
-            if ($teamTotal === 0) {
-                $s1 = 'missing';
-            } elseif ($teamTotal >= 20 && $teamWithApi >= 20) {
-                $s1 = 'ok';
-            } else {
-                $s1 = 'partial';
-            }
-            $th = stepTheme($s1);
-        @endphp
-        <div style="width:100%; border-radius:8px; border:1px solid #e5e7eb; overflow:hidden; box-shadow:0 1px 3px rgba(0,0,0,.07); {{ $th['border_style'] }}">
-            {{-- Header --}}
-            <div style="display:flex; align-items:center; justify-content:space-between; padding:10px 16px; {{ $th['header_style'] }}">
-                <span style="font-weight:700; color:#1f2937; font-size:0.875rem;">
-                    {{ $th['icon'] }} 1. Squadre
-                </span>
-                <span style="{{ $th['badge_style'] }}">{{ $th['badge_label'] }}</span>
-            </div>
-            {{-- Body --}}
-            <div class="bg-white px-4 py-3 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                <div>
-                    <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Dati</p>
-                    {{-- Stagione --}}
-                    <p class="text-gray-700 mb-1">Stagione target: <strong>{{ $seasonLabel }}</strong></p>
-                    {{-- Dual indicator DB + API --}}
-                    <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:6px;">
-                        <span style="display:inline-flex; align-items:center; gap:4px; background:#f3f4f6; border-radius:5px; padding:3px 10px; font-size:0.8rem;">
-                            <span style="color:#6b7280; font-weight:600;">DB</span>
-                            <strong style="{{ $teamTotal >= 20 ? 'color:#198754' : ($teamTotal > 0 ? 'color:#d97706' : 'color:#dc2626') }}">
-                                {{ $teamTotal }}/20
-                            </strong>
+        @php $th = stepTheme($s1) @endphp
+        <div style="width:100%; border-radius:8px; border:1px solid #e5e7eb; overflow:hidden; box-shadow:0 1px 3px rgba(0,0,0,.07); border-left: 4px solid #94a3b8; margin-bottom: 8px;">
+            <div style="display:flex; align-items:center; justify-content:space-between; padding:10px 16px; background-color: white;">
+                <div style="display:flex; align-items:center; gap:16px;">
+                    <span style="font-weight:700; color:#1f2937; font-size:0.875rem;">
+                        1. Squadre
+                    </span>
+                    
+                    {{-- QUATTRO BADGE COMPATTI --}}
+                    <div style="display:flex; gap:8px; align-items:center;">
+                        {{-- 1. Stagione --}}
+                        @php 
+                            $seasonColor = match($seasonStatus['color'] ?? 'warning') {
+                                'success' => '#10b981',
+                                'gray' => '#6b7280',
+                                default => '#f59e0b',
+                            };
+                        @endphp
+                        <span title="Stato Stagione" style="font-size:0.75rem; font-weight:600; color:#475569; background:#fff; border:1px solid #e2e8f0; padding:2px 10px; border-radius:12px;">
+                            Stagione: <span style="color:{{ $seasonColor }}; font-weight:700;">{{ $seasonStatusLabel }}</span>
                         </span>
-                        <span style="display:inline-flex; align-items:center; gap:4px; background:#f3f4f6; border-radius:5px; padding:3px 10px; font-size:0.8rem;">
-                            <span style="color:#6b7280; font-weight:600;">API</span>
-                            <strong style="{{ $teamWithApi >= 20 ? 'color:#198754' : ($teamWithApi > 0 ? 'color:#d97706' : 'color:#dc2626') }}">
-                                {{ $teamWithApi }}/20
-                            </strong>
+                        {{-- 2. Squadre --}}
+                        @php $squadColor = ($teamsActiveCount >= 20) ? '#10b981' : '#f59e0b'; @endphp
+                        <span title="Squadre attive stagione {{ $targetSeason }} su totale storiche" style="font-size:0.75rem; font-weight:600; color:#475569; background:#fff; border:1px solid #e2e8f0; padding:2px 10px; border-radius:12px;">
+                            Squadre: <span style="color:{{ $squadColor }}; font-weight:700;">{{ $teamsActiveCount }}/{{ $teamsUniqueCount }}</span>
+                        </span>
+                        {{-- 3. API --}}
+                        @php $apiColor = ($apiMissingCount === 0) ? '#10b981' : '#f59e0b'; @endphp
+                        <span title="Mancanti / Mappati (Snapshot)" style="font-size:0.75rem; font-weight:600; color:#475569; background:#fff; border:1px solid #e2e8f0; padding:2px 10px; border-radius:12px;">
+                            API: <span style="color:{{ $apiColor }}; font-weight:700;">{{ $apiMissingCount }} / {{ $apiMappedCount }}</span>
+                        </span>
+                        {{-- 4. FBref --}}
+                        @php $fbrefColor = ($fbrefMissingCount === 0) ? '#10b981' : '#f59e0b'; @endphp
+                        <span title="Mancanti / Mappati (Snapshot)" style="font-size:0.75rem; font-weight:600; color:#475569; background:#fff; border:1px solid #e2e8f0; padding:2px 10px; border-radius:12px;">
+                            FBref: <span style="color:{{ $fbrefColor }}; font-weight:700;">{{ $fbrefMissingCount }} / {{ $fbrefMappedCount }}</span>
                         </span>
                     </div>
                 </div>
-                <div>
-                    <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Condizione</p>
-                    @if($teamTotal === 0)
-                        <p style="color:#dc2626;">Nessuna squadra per la stagione {{ $seasonLabel }}. Eseguire l'import API.</p>
-                    @elseif($teamTotal < 20)
-                        <p style="color:#d97706;">{{ $teamTotal }}/20 squadre nel DB — mancano {{ 20 - $teamTotal }}.</p>
-                    @elseif($teamWithApi < 20)
-                        <p style="color:#d97706;">DB completo, ma {{ 20 - $teamWithApi }} squadre senza <code>api_football_data_id</code>. Re-eseguire sync API.</p>
-                    @else
-                        <p style="color:#198754;">Tutte le 20 squadre di Serie A caricate con ID API per la stagione {{ $seasonLabel }}.</p>
-                    @endif
+
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <a href="{{ route('filament.admin.resources.teams.index') }}" class="text-xs font-bold text-blue-600 hover:underline">Gestisci Squadre</a>
+                    <span style="{{ $th['badge_style'] }}">{{ $th['badge_label'] }}</span>
                 </div>
             </div>
+        </div>
+
+
+
+
+        {{-- ══════════════════════════════════════════════════════════════════ --}}
+        {{-- STEP 2 — Storico Classifiche                                     --}}
+        {{-- ══════════════════════════════════════════════════════════════════ --}}
+        @php $th = stepTheme($s2) @endphp
+        <div style="width:100%; border-radius:8px; border:1px solid #e5e7eb; overflow:hidden; box-shadow:0 1px 3px rgba(0,0,0,.07); {{ $th['border_style'] }}">
+            <div style="display:flex; align-items:center; justify-content:space-between; padding:10px 16px; {{ $th['header_style'] }}">
+                <span style="font-weight:700; color:#1f2937; font-size:0.875rem;">
+                    {{ $th['icon'] }} 2. Storico Classifiche
+                </span>
+
+                @if($s2 !== 'blocked' && $standingCount < $standingTarget)
+                    <button wire:click="triggerHistoryScraping" wire:loading.attr="disabled" class="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs font-bold transition-all shadow-sm flex items-center gap-2">
+                        <x-heroicon-o-arrow-path wire:loading.class="animate-spin" class="w-3.5 h-3.5" />
+                        Aggiorna Storico
+                    </button>
+                @endif
+
+                <span style="{{ $th['badge_style'] }}">{{ $th['badge_label'] }}</span>
+            </div>
+            @if($s2 !== 'blocked')
+                <div class="px-4 py-3 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm bg-white dark:bg-gray-900">
+                    <div>
+                        <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">Dati</p>
+                        <p class="text-gray-700 dark:text-gray-200">
+                            Piazzamenti:
+                            <strong style="{{ $standingCount >= $standingTarget ? 'color:#198754' : ($standingCount > 0 ? 'color:#d97706' : 'color:#dc2626') }}">
+                                {{ $standingCount }} / {{ $standingTarget }}
+                            </strong>
+                        </p>
+                    </div>
+                    <div>
+                        <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">Condizione</p>
+                        <p>Verifica della copertura storica dei piazzamenti per le ultime 5 stagioni.</p>
+                    </div>
+                </div>
+            @endif
         </div>
 
         {{-- ══════════════════════════════════════════════════════════════════ --}}

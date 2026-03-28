@@ -1,0 +1,41 @@
+<?php
+
+namespace App\Services\ProxyProviders;
+
+use App\Contracts\ProxyProviderInterface;
+use App\Models\ProxyService;
+use Illuminate\Support\Facades\Http;
+
+class ScraperApiProvider implements ProxyProviderInterface
+{
+    public function checkBalance(ProxyService $proxy): array
+    {
+        $response = Http::timeout(10)->get($proxy->account_endpoint ?: 'http://api.scraperapi.com/account', [
+            'api_key' => $proxy->api_key
+        ]);
+
+        if ($response->successful()) {
+            $data = $response->json();
+            
+            // Mapping: requestCount -> current_usage, requestLimit -> limit_monthly
+            $used = $data['requestCount'] ?? 0;
+            $limit = $data['requestLimit'] ?? 0;
+            
+            return [
+                'used' => $used,
+                'limit' => $limit,
+                'remaining' => $limit - $used
+            ];
+        }
+
+        throw new \Exception("Impossibile recuperare il bilancio da ScraperAPI: " . $response->body());
+    }
+
+    public function getProxyUrl(ProxyService $proxy, string $targetUrl): string
+    {
+        return $proxy->base_url . '?' . http_build_query([
+            'api_key' => $proxy->api_key,
+            'url' => $targetUrl
+        ]);
+    }
+}

@@ -48,4 +48,12 @@ return [
             ],
         ],
     ],
+
+    'fbref' => [
+        'serie_a_url' => env('FBREF_SERIE_A_URL', 'https://fbref.com/en/comps/11/Serie-A-Stats'),
+    ],
+
+    'scrapingbee' => [
+        'api_key' => env('SCRAPINGBEE_KEY'),
+    ],
 ];

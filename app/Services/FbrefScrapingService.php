@@ -1,0 +1,320 @@
+<?php
+namespace App\Services;
+
+use App\Traits\ManagesFbrefScraping; // <-- USA IL NUOVO TRAIT
+use Symfony\Component\DomCrawler\Crawler;
+use Illuminate\Support\Str;
+use Exception;
+use Illuminate\Support\Facades\Log;
+
+class FbrefScrapingService
+{
+    // 1. DICHIARIAMO DI USARE IL TRAIT
+    use ManagesFbrefScraping;
+
+    protected $targetUrl;
+
+    public function __construct()
+    {
+        // Il costruttore ora è pulito!
+        // La chiave API è gestita direttamente dal Trait.
+    }
+
+    public function setTargetUrl(string $url): self
+    {
+        $this->targetUrl = $url;
+        return $this;
+    }
+
+    /**
+     * ORA QUESTA FUNZIONE È "MAGRA":
+     * Chiama solo le funzioni del Trait (Motore + Parser)
+     */
+    public function scrapeTeamStats(): array
+    {
+        if (empty($this->targetUrl)) {
+            Log::error('URL della squadra non impostato.');
+            return [
+                'error' => 'URL della squadra non impostato.'
+            ];
+        }
+
+        $teamStatsSchema = config('fbref_schemas.team_player_stats', []);
+        if (empty($teamStatsSchema)) {
+            Log::error('Schema "team_player_stats" non trovato.');
+            return [
+                'error' => 'Schema "team_player_stats" non trovato.'
+            ];
+        }
+
+        try {
+            // 1. MOTORE (dal Trait)
+            $crawler = $this->fetchPageWithProxy($this->targetUrl);
+        } catch (\Exception $e) {
+            Log::error("Errore (scrapeTeamStats) durante la richiesta al Proxy API: " . $e->getMessage());
+            return [
+                'error' => 'Errore Proxy API: ' . $e->getMessage()
+            ];
+        }
+
+        $allTablesData = [];
+
+        $crawler->filter('table.stats_table')->each(function (Crawler $tableNode) use (&$allTablesData, $teamStatsSchema) {
+            $tableId = $tableNode->attr('id');
+            if (empty($tableId))
+                return;
+
+            $cleanTableId = Str::of($tableId)->replaceMatches('/_\d+$/', '')
+                ->replaceMatches('/_dom_lg$/', '')
+                ->__toString();
+
+            if (isset($teamStatsSchema[$cleanTableId])) {
+                $columnMap = $teamStatsSchema[$cleanTableId];
+                Log::info("Tabella '{$tableId}' trovata e mappata (Schema: '{$cleanTableId}').");
+
+                // 2. PARSER (dal Trait)
+                $allTablesData[$cleanTableId] = $this->parseTableWithInvertedMap($tableNode, $columnMap);
+            } else {
+                Log::warning("Tabella '{$tableId}' (Pulito: '{$cleanTableId}') trovata ma ignorata.");
+            }
+        });
+
+        if (empty($allTablesData)) {
+            Log::error("Nessun dato valido trovato per URL: {$this->targetUrl}");
+            return [
+                'error' => 'Nessun dato valido estratto.'
+            ];
+        }
+
+        Log::info("Scraping (scrapeTeamStats) completato con successo per: {$this->targetUrl}");
+        return $allTablesData;
+    }
+
+    /**
+     * Estrae la classifica di Serie A per mappare Squadre -> URL
+     * URL: https://fbref.com/en/comps/11/Serie-A-Stats
+     */
+    public function scrapeSerieAStandings(): array
+    {
+        $url = "https://fbref.com/en/comps/11/Serie-A-Stats";
+        Log::info("Inizio Scraping Classifica Serie A: {$url}");
+
+        try {
+            $crawler = $this->fetchPageWithProxy($url);
+            
+            // Cerchiamo la tabella della classifica (solitamente ha id dinamico basato sull'anno)
+            // Usiamo un selettore più generico o cerchiamo l'id che inizia con results
+            $table = $crawler->filter('table[id^="results"]')->first();
+            
+            if ($table->count() === 0) {
+                throw new \Exception("Tabella classifica non trovata nella pagina.");
+            }
+
+            $teams = [];
+            $table->filter('tbody tr')->each(function (Crawler $row) use (&$teams) {
+                $squadNode = $row->filter('td[data-stat="team"] a')->first();
+                if ($squadNode->count() > 0) {
+                    $teamName = trim($squadNode->text());
+                    $teamUrl = $squadNode->attr('href');
+                    
+                    if (!str_starts_with($teamUrl, 'http')) {
+                        $teamUrl = "https://fbref.com" . $teamUrl;
+                    }
+
+                    // Estrazione ID (es. dcce17c0)
+                    $fbrefId = null;
+                    if (preg_match('/squads\/([a-f0-9]+)\//', $teamUrl, $matches)) {
+                        $fbrefId = $matches[1];
+                    }
+
+                    $teams[] = [
+                        'fbref_name' => $teamName,
+                        'fbref_url'  => $teamUrl,
+                        'fbref_id'   => $fbrefId
+                    ];
+                }
+            });
+
+            Log::info("Classifica estratta: " . count($teams) . " squadre trovate.");
+            return $teams;
+
+        } catch (\Exception $e) {
+            Log::error("Errore durante lo scraping della classifica: " . $e->getMessage());
+            return [];
+        }
+    }
+
+    /**
+     * ANCHE QUESTA FUNZIONE ORA È "MAGRA":
+     * Chiama solo il "MOTORE" del Trait e la sua logica di parsing.
+     */
+    public function searchPlayerFbrefUrlByName(string $playerName, ?string $playerTeamShortName = null): ?string
+    {
+        $encodedPlayerName = urlencode($playerName);
+        $searchUrl = "https://fbref.com/en/search/search.fcgi?search={$encodedPlayerName}";
+        Log::info("Inizio ricerca FBref (via Trait) per: '{$playerName}'");
+
+        try {
+            // 1. MOTORE (dal Trait)
+            $crawler = $this->fetchPageWithProxy($searchUrl);
+
+            // 2. LOGICA DI CONTROLLO (che non richiede schema)
+            $playerH1 = $crawler->filter('#meta h1');
+            if ($playerH1->count() > 0) {
+                $canonicalLink = $crawler->filter('link[rel="canonical"]');
+                if ($canonicalLink->count() > 0) {
+                    $finalUrl = $canonicalLink->attr('href');
+                    Log::info("Trovato URL FBref per '{$playerName}' (Redirect via Proxy): {$finalUrl}");
+                    return $finalUrl;
+                }
+            }
+
+            Log::warning("La ricerca per '{$playerName}' non ha reindirizzato. Analizzo i risultati...");
+
+            // --- INIZIO LOGICA DI PUNTEGGIO CORRETTA (presa dal tuo file originale) ---
+            $searchResults = $crawler->filter('div.search-item');
+
+            if ($searchResults->count() > 0) {
+                Log::debug("Trovati {$searchResults->count()} elementi di ricerca potenziali. Analizzo i testi:");
+
+                $bestMatchUrl = null;
+                $bestMatchScore = - 1;
+                $playerNameLower = Str::lower(trim($playerName));
+                $playerTeamShortNameLower = $playerTeamShortName ? Str::lower(trim($playerTeamShortName)) : null;
+
+                foreach ($searchResults as $node) {
+                    $itemCrawler = new Crawler($node);
+                    $playerLinkNode = $itemCrawler->filter('.search-item-name a');
+
+                    if ($playerLinkNode->count() === 0) {
+                        Log::debug("Saltato elemento senza link del giocatore.");
+                        continue;
+                    }
+
+                    $fullUrl = 'https://fbref.com' . $playerLinkNode->attr('href');
+                    $linkText = trim($playerLinkNode->text());
+                    $linkTextLower = Str::lower($linkText);
+
+                    $teamText = $itemCrawler->filter('.search-item-team')->count() > 0 ? Str::lower(trim($itemCrawler->filter('.search-item-team')->text())) : null;
+
+                    $currentScore = 0;
+
+                    if ($linkTextLower === $playerNameLower) {
+                        $currentScore += 100;
+                    } elseif (Str::contains($linkTextLower, $playerNameLower)) {
+                        $currentScore += 50;
+                    }
+
+                    if ($playerTeamShortNameLower && $teamText) {
+                        if (Str::contains($teamText, $playerTeamShortNameLower)) {
+                            $currentScore += 30;
+                        } else {
+                            // Qui manca la funzione 'calculateTeamNameSimilarity',
+                            // dobbiamo aggiungerla al Trait o al Servizio.
+                            // Per ora, continuiamo con la logica semplice.
+                        }
+                    }
+
+                    Log::debug("Risultato: '{$linkText}' | Squadra FBref: '{$teamText}' | URL: '{$fullUrl}' | Score: {$currentScore}");
+
+                    if ($currentScore > $bestMatchScore) {
+                        $bestMatchScore = $currentScore;
+                        $bestMatchUrl = $fullUrl;
+                    }
+                }
+
+                if ($bestMatchUrl && $bestMatchScore > 0) {
+                    Log::info("Trovato il miglior URL FBref per '{$playerName}' (Score: {$bestMatchScore}): {$bestMatchUrl}");
+                    return $bestMatchUrl;
+                }
+            }
+            // --- FINE LOGICA DI PUNTEGGIO CORRETTA ---
+
+            Log::warning("URL FBref non trovato per '{$playerName}'.");
+            return null;
+        } catch (\Exception $e) {
+            Log::error("Errore (searchPlayerFbrefUrlByName) durante la ricerca: " . $e->getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Verifica lo stato del proxy e i crediti rimanenti tramite ProxyManagerService.
+     */
+    public function checkProxyHealth(): array
+    {
+        $proxyManager = app(ProxyManagerService::class);
+        $proxy = $proxyManager->getActiveProxy();
+
+        if (!$proxy) {
+            return [
+                'ok' => false,
+                'error' => "Nessun proxy attivo trovato",
+                'remaining_credits' => 0
+            ];
+        }
+
+        $success = $proxyManager->testConnection($proxy);
+
+        return [
+            'ok' => $success,
+            'remaining_credits' => $proxy->limit_monthly - $proxy->current_usage,
+            'name' => $proxy->name
+        ];
+    }
+
+    /**
+     * Ponte pubblico per il test del proxy e l'uso esterno
+     */
+    public function testProxyCall(string $url)
+    {
+        return $this->fetchPageWithProxy($url);
+    }
+
+    public function getRemainingCredits()
+    {
+        $proxy = app(ProxyManagerService::class)->getActiveProxy();
+        return $proxy ? ($proxy->limit_monthly - $proxy->current_usage) : 0;
+    }
+
+    /**
+     * Metodo PONTE corretto
+     */
+    public function parseDataFromHtml(string $html, string $schemaKey): array
+    {
+        $crawler = new \Symfony\Component\DomCrawler\Crawler($html);
+        $data = [];
+
+        // Recuperiamo lo schema dal config
+        $schema = config("fbref_schemas.{$schemaKey}");
+
+        if (! $schema) {
+            return [
+                'error' => "Schema {$schemaKey} non trovato"
+            ];
+        }
+
+        // Usiamo il metodo 'scrapeTable' che è sicuramente presente nel tuo Trait
+        foreach ($schema as $tableKey => $tableConfig) {
+            $tableData = $this->scrapeTable($crawler, $tableConfig['id'], $tableConfig['columns']);
+            if (! empty($tableData)) {
+                $data[$tableKey] = $tableData;
+            }
+        }
+
+        return $data;
+    }
+
+    /**
+     * Test di estrazione da file locale corretto
+     */
+    public function scrapeFromLocalFile(string $filePath, string $schemaKey): array
+    {
+        if (! file_exists($filePath)) {
+            throw new \Exception("File non trovato: $filePath");
+        }
+
+        $html = file_get_contents($filePath);
+        return $this->parseDataFromHtml($html, $schemaKey);
+    }
+}

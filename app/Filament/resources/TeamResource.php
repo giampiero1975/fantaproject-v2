@@ -12,6 +12,7 @@ use Filament\Tables;
 use Filament\Tables\Table;
 use Filament\Notifications\Notification;
 use Filament\Support\Colors\Color;
+use App\Helpers\SeasonHelper;
 
 class TeamResource extends Resource
 {
@@ -31,7 +32,10 @@ class TeamResource extends Resource
                 Forms\Components\TextInput::make('name')
                 ->required()
                 ->maxLength(255),
-                Forms\Components\TextInput::make('api_football_data_id')
+                Forms\Components\TextInput::make('official_name')
+                ->maxLength(255)
+                ->label('Nome Ufficiale'),
+                Forms\Components\TextInput::make('api_id')
                 ->numeric()
                 ->label('ID API'),
                 Forms\Components\TextInput::make('fbref_url')
@@ -44,21 +48,21 @@ class TeamResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
-        ->modifyQueryUsing(fn (\Illuminate\Database\Eloquent\Builder $query) => $query->reorder()->orderBy('tier', 'asc')->orderBy('posizione_media', 'asc'))
-        ->defaultSort('tier', 'asc')
+        ->modifyQueryUsing(fn (\Illuminate\Database\Eloquent\Builder $query) => $query->reorder()->orderBy('tier_globale', 'asc')->orderBy('posizione_media_storica', 'asc'))
+        ->defaultSort('tier_globale', 'asc')
         ->columns([
-            Tables\Columns\ImageColumn::make('crest_url')
+            Tables\Columns\ImageColumn::make('logo_url')
             ->label('Logo')
             ->circular(),
             Tables\Columns\TextColumn::make('name')
             ->searchable()
             ->sortable(),
-            Tables\Columns\TextColumn::make('tier')
-            ->label('Tier')
+            Tables\Columns\TextColumn::make('tier_globale')
+            ->label('Tier Globale')
             ->sortable(query: function (\Illuminate\Database\Eloquent\Builder $query, string $direction): \Illuminate\Database\Eloquent\Builder {
                 return $query
-                    ->orderBy('tier', $direction)
-                    ->orderBy('posizione_media', $direction);
+                    ->orderBy('tier_globale', $direction)
+                    ->orderBy('posizione_media_storica', $direction);
             })
             ->badge()
             ->color(fn (?string $state): string => match ((string) $state) {
@@ -70,8 +74,8 @@ class TeamResource extends Resource
                 default => 'gray',
             }),
             // AGGIUNTA: Colonna Posizione Media
-            Tables\Columns\TextColumn::make('posizione_media')
-            ->label('Pos. Media')
+            Tables\Columns\TextColumn::make('posizione_media_storica')
+            ->label('Pos. Media Storica')
             ->numeric(
                 decimalPlaces: 4,
                 decimalSeparator: ',',
@@ -89,29 +93,80 @@ class TeamResource extends Resource
                     ->where('season_year', 2025)
                     ->value('position') ?? '-';
             }),
-            // AGGIUNTA: Colonna Stagione
-            Tables\Columns\TextColumn::make('season_year')
-            ->label('Stagione')
-            ->sortable()
-            ->badge(),
-            // AGGIUNTA: Stato Serie A con Icona
-            Tables\Columns\IconColumn::make('serie_a_team')
-            ->label('In A')
+            // AGGIUNTA: Stato Serie A Corrente (InA)
+            Tables\Columns\IconColumn::make('is_active_current')
+            ->label('In Serie A')
             ->boolean()
-            ->sortable(),
+            ->state(function (\App\Models\Team $record) {
+                $currentSeason = \App\Models\Season::where('is_current', true)->first();
+                if (!$currentSeason) return false;
+                return $record->teamSeasons()
+                    ->where('season_id', $currentSeason->id)
+                    ->exists();
+            }),
         ])
         ->filters([
-            // AGGIUNTA: Filtro per Stagione
-            Tables\Filters\SelectFilter::make('season_year')
-            ->label('Filtra per Anno')
-            ->options([
-                2023 => '2023',
-                2024 => '2024',
-                2025 => '2025',
-            ]),
-            // AGGIUNTA: Filtro per Serie A/B
-            Tables\Filters\TernaryFilter::make('serie_a_team')
-            ->label('Solo Serie A'),
+            // AGGIUNTA: Filtro "Serie A Corrente"
+            Tables\Filters\TernaryFilter::make('in_serie_a')
+            ->label('Sola Serie A Corrente')
+            ->queries(
+                true: fn (\Illuminate\Database\Eloquent\Builder $query) => $query->whereHas('teamSeasons', function($q) {
+                    $currentSeason = \App\Models\Season::where('is_current', true)->first();
+                    $q->where('season_id', $currentSeason?->id);
+                }),
+                false: fn (\Illuminate\Database\Eloquent\Builder $query) => $query->whereDoesntHave('teamSeasons', function($q) {
+                    $currentSeason = \App\Models\Season::where('is_current', true)->first();
+                    $q->where('season_id', $currentSeason?->id);
+                }),
+            ),
+            // AGGIUNTA: Filtro "Cerca-Buchi" FBref
+            Tables\Filters\TernaryFilter::make('fbref_status')
+            ->label('Stato FBref')
+            ->placeholder('Tutti i record')
+            ->trueLabel('Mappate')
+            ->falseLabel('Da Allineare')
+            ->queries(
+                true: fn (\Illuminate\Database\Eloquent\Builder $query) => $query->whereNotNull('fbref_id')->where('fbref_id', '!=', ''),
+                false: fn (\Illuminate\Database\Eloquent\Builder $query) => $query->where(function($q) {
+                    $q->whereNull('fbref_id')->orWhere('fbref_id', '');
+                }),
+            ),
+        ])
+        ->actions([
+            Tables\Actions\EditAction::make()
+                ->visible(fn ($record) => !empty($record->fbref_id)),
+            Tables\Actions\Action::make('align_fbref')
+                ->label('Allinea FBref')
+                ->color('danger')
+                ->icon('heroicon-o-link')
+                ->requiresConfirmation()
+                ->hidden(fn ($record) => !empty($record->fbref_id))
+                ->action(function (Team $record) {
+                    try {
+                        $service = app(\App\Services\TeamFbrefAlignmentService::class);
+                        $success = $service->alignTeam($record);
+
+                        if ($success) {
+                            Notification::make()
+                                ->title('Allineamento Riuscito')
+                                ->body("Squadra '{$record->name}' mappata con successo.")
+                                ->success()
+                                ->send();
+                        } else {
+                            Notification::make()
+                                ->title('Match Fallito')
+                                ->body("Nessun URL FBref trovato o valido per '{$record->name}'.")
+                                ->danger()
+                                ->send();
+                        }
+                    } catch (\Exception $e) {
+                        Notification::make()
+                            ->title('Errore Tecnico')
+                            ->body($e->getMessage())
+                            ->danger()
+                            ->send();
+                    }
+                }),
         ]);
     }
     public static function getPages(): array

@@ -18,8 +18,14 @@ class TeamDataService
         $logger = Log::build(['driver' => 'single', 'path' => $logPath]);
         $logger->info("--- 🚀 AVVIO SINCRONIZZAZIONE AVANZATA ---");
         
-        // 1. Definiamo i Target (Solo le squadre con il flag serie_a_team)
-        $targetTeams = DB::table('teams')->where('serie_a_team', 1)->get();
+        // 1. Definiamo i Target (Squadre attive nella stagione/competizione indicata)
+        $currentSeasonModel = \App\Models\Season::where('season_year', $year)->first();
+        $seasonId = $currentSeasonModel ? $currentSeasonModel->id : 0;
+        
+        $targetTeams = \App\Models\Team::whereHas('teamSeasons', function($q) use ($seasonId) {
+            $q->where('season_id', $seasonId)->where('is_active', true);
+        })->get();
+        
         Log::info("Scraper: Inizio elaborazione per " . $targetTeams->count() . " team target.");
         
         // 2. Download via Proxy
@@ -124,7 +130,12 @@ class TeamDataService
     
     public function getCoverageData(array $seasons)
     {
-        $teams = DB::table('teams')->where('serie_a_team', 1)->orderBy('name')->get();
+        $currentSeasonModel = \App\Models\Season::where('is_current', true)->first();
+        $seasonId = $currentSeasonModel ? $currentSeasonModel->id : 0;
+
+        $teams = \App\Models\Team::whereHas('teamSeasons', function($q) use ($seasonId) {
+            $q->where('season_id', $seasonId)->where('is_active', true);
+        })->orderBy('name')->get();
         $matrix = [];
         foreach ($teams as $team) {
             $row = ['team_name' => $team->name];
@@ -210,7 +221,7 @@ class TeamDataService
         $logger->info("⚙️  CF Serie B  : {$cf} | ModT1-2: {$modOffensive}x | ModT4-5: {$modDefensive}x");
         $logger->info(str_repeat('─', 70));
 
-        $teams      = DB::table('teams')->where('serie_a_team', 1)->get();
+        $teams      = \App\Models\Team::all(); // Calcoliamo il tier globale per tutte le squadre master
         $updated    = 0;
         $skipped    = 0;
         $upsertData = [];
@@ -312,9 +323,9 @@ class TeamDataService
             $logger->info("   → Tier assegnato: {$tier}");
 
             $upsertData[] = [
-                'id'             => $team->id,
-                'tier'           => $tier,
-                'posizione_media' => $avgPositionMod,
+                'id'                      => $team->id,
+                'tier_globale'            => $tier,
+                'posizione_media_storica' => $avgPositionMod,
             ];
             $updated++;
         }
@@ -322,8 +333,8 @@ class TeamDataService
         // ── Aggiornamento batch ────────────────────────────────────────────────
         foreach ($upsertData as $row) {
             DB::table('teams')->where('id', $row['id'])->update([
-                'tier'            => $row['tier'],
-                'posizione_media' => $row['posizione_media'],
+                'tier_globale'            => $row['tier_globale'],
+                'posizione_media_storica' => $row['posizione_media_storica'],
             ]);
         }
 
@@ -372,7 +383,7 @@ class TeamDataService
      * Recupera la rosa di una squadra dall'API football-data.org.
      * Endpoint: GET /v4/teams/{id}  →  field: squad[]
      *
-     * @param  int $apiTeamId  Il valore di teams.api_football_data_id
+     * @param  int $apiTeamId  Il valore di teams.api_id
      * @return array           Array di giocatori: [id, name, position, dateOfBirth, ...]
      */
     public function getSquad(int $apiTeamId): array
@@ -541,35 +552,44 @@ class TeamDataService
                 continue;
             }
 
-            $existing = DB::table('teams')->where('api_football_data_id', $apiId)->first()
-                ?? DB::table('teams')->where('name', $name)->first();
-
-            $payload = [
-                'name'                 => $name,
-                'short_name'           => $shortName,
-                'api_football_data_id' => $apiId,
-                'season_year'          => $targetSeason,
-                'serie_a_team'         => 1,
-                'crest_url'            => $crest,
-                'tla'                  => $tla,
-                'updated_at'           => now(),
-            ];
-
-            if ($existing) {
-                DB::table('teams')->where('id', $existing->id)->update($payload);
-                $updated++;
-                $logger->info("🔄 AGGIORNATA: [{$existing->id}] {$name} (API ID: {$apiId})");
-            } else {
-                $payload['created_at'] = now();
-                DB::table('teams')->insert($payload);
+            // 1. Upsert Master Team
+            $team = \App\Models\Team::updateOrCreate(
+                ['api_id' => $apiId],
+                [
+                    'name'       => $name,
+                    'short_name' => $shortName,
+                    'logo_url'   => $crest,
+                    'tla'        => $tla,
+                ]
+            );
+            
+            if ($team->wasRecentlyCreated) {
                 $created++;
-                $logger->info("✅ CREATA:     {$name} (API ID: {$apiId})");
+                $logger->info("✅ CREATA (Master): {$name} (API ID: {$apiId})");
+            } else {
+                $updated++;
+                $logger->info("🔄 AGGIORNATA (Master): [{$team->id}] {$name} (API ID: {$apiId})");
+            }
+
+            // 2. Upsert Snapshot (team_season)
+            $seasonModel = \App\Models\Season::where('season_year', $targetSeason)->first();
+            if ($seasonModel) {
+                \App\Models\TeamSeason::updateOrCreate(
+                    [
+                        'team_id' => $team->id,
+                        'season_id' => $seasonModel->id,
+                    ],
+                    [
+                        'league_id' => 1, // Default Serie A (da migliorare se multilega)
+                        'is_active' => true,
+                    ]
+                );
             }
         }
 
         $total = $created + $updated;
         $logger->info(str_repeat('─', 55));
-        $logger->info("🏁 FINE — Creati: {$created} | Aggiornati: {$updated} | Totale: {$total}");
+        $logger->info("🏁 FINE — Master Creati: {$created} | Master Aggiornati: {$updated} | Totale: {$total}");
 
         // ── Chiudi import_logs (solo colonne esistenti) ───────────────────────
         DB::table('import_logs')->where('id', $importLogId)->update([
@@ -577,7 +597,7 @@ class TeamDataService
             'rows_processed' => $total,
             'rows_created'   => $created,
             'rows_updated'   => $updated,
-            'details'        => "Stagione {$targetSeason}: {$created} create, {$updated} aggiornate",
+            'details'        => "Stagione {$targetSeason}: {$created} master create/rilevate, {$updated} master aggiornate",
             'updated_at'     => now(),
         ]);
         $logger->info("📋 ImportLog #{$importLogId} — status: successo");

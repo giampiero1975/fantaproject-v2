@@ -37,17 +37,19 @@ class ListTeamHistoricalStandings extends ListRecords
                     ->default((date('n') < 8) ? (int) date('Y') - 1 : (int) date('Y'))
                     ->required()
                 ])
-                ->action(function (array $data, TeamDataService $service) {
+                ->action(function (array $data, \App\Services\LeagueHistoryScraperService $service) {
                     $year = (int) $data['seasonYear'];
-                    $isSuccess = $service->fetchAndStoreSeasonStandings('SA', $year);
+                    $result = $service->scrapeSeason($year);
 
-                    if ($isSuccess) {
+                    if ($result['status'] === 'success') {
+                        $stats = $result['stats'];
                         Notification::make()->title("Sincronizzazione stagione {$year} completata!")
+                            ->body("Creati: {$stats['created']}, Aggiornati: {$stats['updated']}")
                             ->success()
                             ->send();
                     } else {
                         Notification::make()->title("Sincronizzazione fallita per il {$year}")
-                            ->body("L'API ha negato l'accesso. Controlla il log in storage/logs/Teams/.")
+                            ->body($result['message'] ?? "Errore sconosciuto. Controlla il log in storage/logs/history_import.log")
                             ->danger()
                             ->send();
                     }

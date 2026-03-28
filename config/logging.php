@@ -127,6 +127,20 @@ return [
             'path' => storage_path('logs/laravel.log'),
         ],
 
+        'align_fbref' => [
+            'driver' => 'single',
+            'path' => storage_path('logs/Teams/align_fbref.log'),
+            'level' => 'debug',
+            'replace_placeholders' => true,
+        ],
+
+        'history_import' => [
+            'driver' => 'single',
+            'path' => storage_path('logs/Imports/history_import.log'),
+            'level' => 'debug',
+            'replace_placeholders' => true,
+        ],
+
     ],
 
 ];
