@@ -1,4 +1,74 @@
 <x-filament-panels::page>
+    <!-- MANUALE OPERATIVO -->
+    @include('filament.pages.manage-season.guide')
+
+    <!-- WIDGET LOOKBACK MONITOR (4 ANNI STORICI) -->
+    @if ($lookbackStatus && $lookbackStatus['current_year'])
+        <div class="mb-6">
+            <x-filament::section 
+                title="Monitor Salute Storico (Lookback 4 Anni)" 
+                icon="heroicon-o-chart-bar"
+                :description="$lookbackStatus['is_ready'] ? 'Dati storici completi e pronti per il modello predittivo.' : 'Attenzione: lo storico predittivo non è completo.'"
+            >
+                <div class="flex flex-col md:flex-row items-center justify-between gap-6">
+                    <!-- Progress Circle / Summary -->
+                    <div class="flex items-center space-x-4">
+                        <div class="relative h-16 w-16">
+                            <svg class="h-16 w-16 transform -rotate-90">
+                                <circle cx="32" cy="32" r="28" stroke="currentColor" stroke-width="8" fill="transparent" class="text-gray-200 dark:text-gray-700" />
+                                <circle cx="32" cy="32" r="28" stroke="currentColor" stroke-width="8" fill="transparent" 
+                                    stroke-dasharray="175.9" 
+                                    stroke-dashoffset="{{ 175.9 * (1 - ($lookbackStatus['ready_count'] / $lookbackStatus['target_count'])) }}" 
+                                    class="{{ $lookbackStatus['is_ready'] ? 'text-success-500' : ($lookbackStatus['ready_count'] > 0 ? 'text-warning-500' : 'text-danger-500') }}" />
+                            </svg>
+                            <div class="absolute inset-0 flex items-center justify-center text-sm font-bold">
+                                {{ $lookbackStatus['ready_count'] }}/{{ $lookbackStatus['target_count'] }}
+                            </div>
+                        </div>
+                        <div>
+                            <p class="text-lg font-bold leading-none">Storico Predittivo</p>
+                            <p class="text-xs text-gray-500 mt-1 uppercase tracking-wider font-semibold">Basato su Stagione {{ $lookbackStatus['current_year'] }}</p>
+                        </div>
+                    </div>
+
+                    <!-- Years Details Grid -->
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 flex-1">
+                        @foreach ($lookbackStatus['years'] as $yearData)
+                            <div class="p-3 rounded-lg border {{ $yearData['is_complete'] ? 'bg-success-50 border-success-200 dark:bg-success-950/20 dark:border-success-800' : 'bg-danger-50 border-danger-200 dark:bg-danger-950/20 dark:border-danger-800' }}">
+                                <div class="flex justify-between items-start mb-1">
+                                    <span class="text-sm font-bold">{{ $yearData['year'] }}</span>
+                                    <x-filament::icon 
+                                        :icon="$yearData['status']['icon']" 
+                                        class="h-4 w-4 {{ 'text-' . $yearData['status']['color'] . '-500' }}" 
+                                    />
+                                </div>
+                                <div class="text-[10px] uppercase font-bold text-gray-500">
+                                    {{ $yearData['status']['label'] }} ({{ $yearData['teams_count'] }}/20)
+                                </div>
+                                @if (!$yearData['is_api_supported'])
+                                    <div class="mt-2">
+                                        <x-filament::badge color="warning" size="xs" icon="heroicon-o-cpu-chip">
+                                            FBref Ready
+                                        </x-filament::badge>
+                                    </div>
+                                @endif
+                            </div>
+                        @endforeach
+                    </div>
+                </div>
+
+                @if (!$lookbackStatus['is_ready'])
+                    <div class="mt-4 p-4 bg-danger-50 dark:bg-danger-950/20 rounded-lg border-l-4 border-danger-500 flex items-center gap-3">
+                        <x-filament::icon icon="heroicon-o-exclamation-triangle" class="h-6 w-6 text-danger-500" />
+                        <div class="text-sm text-danger-700 dark:text-danger-400">
+                            <strong>Dati Insufficienti:</strong> Mancano le rose complete per alcune stagioni storiche. Il modello predittivo potrebbe non essere accurato.
+                        </div>
+                    </div>
+                @endif
+            </x-filament::section>
+        </div>
+    @endif
+
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
         
         <!-- CARD STATO LOCALE -->
