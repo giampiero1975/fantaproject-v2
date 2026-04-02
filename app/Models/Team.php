@@ -16,7 +16,6 @@ class Team extends Model
      */
     protected $fillable = [
         'name',                   // Nome comune (Inter, Milan)
-        'official_name',          // Nome ufficiale (FC Internazionale Milano)
         'short_name',             // Nome breve (Inter)
         'tla',                    // Acronimo (INT)
         'logo_url',               // URL dello stemma (era crest_url)

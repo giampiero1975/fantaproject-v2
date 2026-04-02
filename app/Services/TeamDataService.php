@@ -3,14 +3,17 @@
 namespace App\Services;
 
 use App\Traits\ParsesFbrefHtml;
+use App\Traits\FindsTeam;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Str; // Importazione necessaria per risolvere l'errore
+use Illuminate\Support\Str;
+use App\Models\League;
+use App\Models\Team;
 
 class TeamDataService
 {
-    use ParsesFbrefHtml;
+    use ParsesFbrefHtml, FindsTeam;
     
     public function scrapeFromFbrefUrl(string $url, int $year, string $division)
     {
@@ -432,7 +435,7 @@ class TeamDataService
      *
      * @return array ['created' => int, 'updated' => int]
      */
-    public function importTeamsFromApi(): array
+    public function importTeamsFromApi(?int $seasonYear = null): array
     {
         // ── Logger dedicato ───────────────────────────────────────────────────
         // Path: storage/logs/Squadre/ (convenzione: Squadre/ per squadre, Roster/ per giocatori)
@@ -446,7 +449,7 @@ class TeamDataService
         ]);
 
         $currentYear  = (int) date('Y');
-        $targetSeason = $currentYear - 1; // start-year convention: 2025 = stagione 2025/26
+        $targetSeason = $seasonYear ?? ($currentYear - 1); // start-year convention: 2025 = stagione 2025/2026
 
         $logger->info('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
         $logger->info("🚀 AVVIO importTeamsFromApi — stagione target: {$targetSeason}");
@@ -552,10 +555,24 @@ class TeamDataService
                 continue;
             }
 
-            // 1. Upsert Master Team
+            // 1. Ricerca Intelligente (Prevenzione Duplicati/Cadaveri)
+            // A. Cerco per api_id (già ufficiale)
+            $team = \App\Models\Team::where('api_id', $apiId)->first();
+
+            if (!$team) {
+                // B. Cerco un "Orfano" (record creato da FBref senza ancora api_id)
+                $orphanId = $this->findOrphanIdByName($name);
+                if ($orphanId) {
+                    $team = \App\Models\Team::find($orphanId);
+                    $logger->info("♻️  [ORPHAN ADOPTION] Team '{$name}' (ID: {$team->id}) trovato come orfano. Aggancio api_id: {$apiId}");
+                }
+            }
+
+            // 2. Upsert Master Team (usa l'ID trovato o ne crea uno nuovo)
             $team = \App\Models\Team::updateOrCreate(
-                ['api_id' => $apiId],
+                ['id' => $team?->id ?? null],
                 [
+                    'api_id'     => $apiId,
                     'name'       => $name,
                     'short_name' => $shortName,
                     'logo_url'   => $crest,
@@ -580,7 +597,7 @@ class TeamDataService
                         'season_id' => $seasonModel->id,
                     ],
                     [
-                        'league_id' => 1, // Default Serie A (da migliorare se multilega)
+                        'league_id' => League::where('api_id', 2019)->first()?->id ?? 1,
                         'is_active' => true,
                     ]
                 );

@@ -33,9 +33,15 @@ class ScraperApiProvider implements ProxyProviderInterface
 
     public function getProxyUrl(ProxyService $proxy, string $targetUrl): string
     {
-        return $proxy->base_url . '?' . http_build_query([
-            'api_key' => $proxy->api_key,
-            'url' => $targetUrl
-        ]);
+        $apiKey = $proxy->api_key ?: config('services.scraperapi.api_key');
+
+        $params = [
+            'api_key' => $apiKey,
+            'url' => $targetUrl,
+            'device_type' => 'mobile',
+            'country_code' => 'it',
+        ];
+
+        return $proxy->base_url . '?' . http_build_query($params);
     }
 }

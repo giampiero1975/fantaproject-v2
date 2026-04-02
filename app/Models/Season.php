@@ -9,13 +9,9 @@ class Season extends Model
 {
     use HasFactory;
 
-    /**
-     * L'ID non è autoincrementante perché usiamo quello dell'API.
-     */
-    public $incrementing = false;
-
     protected $fillable = [
-        'id',
+        'api_id',
+        'fbref_id',
         'start_date',
         'end_date',
         'season_year',
@@ -28,4 +24,10 @@ class Season extends Model
         'is_current' => 'boolean',
         'season_year' => 'integer',
     ];
+
+    public function teams()
+    {
+        return $this->belongsToMany(Team::class, 'team_season', 'season_id', 'team_id')
+            ->withTimestamps();
+    }
 }

@@ -21,10 +21,12 @@ class ScrapingBeeProvider implements ProxyProviderInterface
             'url' => $targetUrl,
         ];
 
-        // Se il proxy ha una preferenza per il rendering nel DB o se usiamo parametri di sistema
-        // In ScrapingBee, il rendering è controllato dal parametro 'render_js'
-        if ($proxy->js_cost > 1) {
-            $params['render_js'] = 'true';
+        // Per FBref è necessario il proxy PREMIUM + STEALTH per superare Cloudflare
+        if (str_contains($targetUrl, 'fbref.com')) {
+            $params['premium_proxy'] = 'true';
+            $params['stealth_proxy'] = 'true';
+            $params['country_code'] = 'it';
+            $params['block_resources'] = 'false'; // A volte aiuta a risolvere i challenge
         }
 
         return $this->baseUrl . '?' . http_build_query($params);

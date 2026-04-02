@@ -106,6 +106,15 @@ class TeamResource extends Resource
             }),
         ])
         ->filters([
+            // NUOVO: Filtro Stagione (Dinamico)
+            Tables\Filters\SelectFilter::make('season')
+                ->label('Stagione')
+                ->options(fn () => \App\Helpers\SeasonHelper::getPresentSeasons())
+                ->query(function (\Illuminate\Database\Eloquent\Builder $query, array $data) {
+                    if (empty($data['value'])) return $query;
+                    return $query->whereHas('teamSeasons', fn ($q) => $q->where('season_id', $data['value']));
+                }),
+
             // AGGIUNTA: Filtro "Serie A Corrente"
             Tables\Filters\TernaryFilter::make('in_serie_a')
             ->label('Sola Serie A Corrente')

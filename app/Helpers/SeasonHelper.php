@@ -26,12 +26,42 @@ class SeasonHelper
     {
         $current = self::getCurrentSeason();
         $seasons = [];
+        $seasons[$current] = self::formatYear($current) . " (In Corso)";
         
-        for ($i = ($years - 1); $i >= 0; $i--) {
-            $year = $current - $i;
-            $seasons[$year] = (string)$year;
+        $lastConcluded = $current - 1;
+        for ($i = 0; $i < $years; $i++) {
+            $year = $lastConcluded - $i;
+            $seasons[$year] = self::formatYear($year);
         }
 
+        krsort($seasons);
         return $seasons;
+    }
+
+    /**
+     * Formatta un anno nel formato YYYY/YY (es. 2025 -> 2025/26)
+     */
+    public static function formatYear(int $year): string
+    {
+        $next = substr((string)($year + 1), -2);
+        return "{$year}/{$next}";
+    }
+
+    /**
+     * Restituisce le stagioni che hanno dati collegati (team_season o standings).
+     */
+    public static function getPresentSeasons(): array
+    {
+        $yearsInHistory = \Illuminate\Support\Facades\DB::table('team_historical_standings')
+            ->distinct()
+            ->pluck('season_year')
+            ->toArray();
+
+        return \App\Models\Season::whereHas('teams')
+            ->orWhereIn('season_year', $yearsInHistory)
+            ->orderBy('season_year', 'desc')
+            ->get()
+            ->mapWithKeys(fn ($s) => [$s->id => self::formatYear($s->season_year)])
+            ->toArray();
     }
 }

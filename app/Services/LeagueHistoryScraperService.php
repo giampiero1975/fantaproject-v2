@@ -13,6 +13,8 @@ use App\Services\ProxyManagerService;
 
 class LeagueHistoryScraperService
 {
+    use \App\Traits\FindsTeam;
+
     protected string $historyUrl = 'https://fbref.com/en/comps/11/history/Serie-A-Seasons';
     protected string $logChannel = 'history_import';
 
@@ -58,7 +60,7 @@ class LeagueHistoryScraperService
             }
 
             $this->log("📂 Analisi Stagione: $seasonLabel ($seasonYear)");
-            $stats = $this->scrapeSeasonStandings($seasonUrl, $seasonYear);
+            $stats = $this->scrapeSeasonStandings($seasonUrl, $seasonYear, false); // Default: don't save standings
             
             $importStats['created'] += $stats['created'];
             $importStats['updated'] += $stats['updated'];
@@ -82,7 +84,7 @@ class LeagueHistoryScraperService
         $nextYear = $year + 1;
         $url = "https://fbref.com/en/comps/11/{$year}-{$nextYear}/{$year}-{$nextYear}-Serie-A-Stats";
         
-        $stats = $this->scrapeSeasonStandings($url, $year);
+        $stats = $this->scrapeSeasonStandings($url, $year, false); // Sempre false quando chiamato dall'azione Teams
         
         $total = $stats['created'] + $stats['updated'];
         $this->log("✅ Fine scraping $year. Importati/Aggiornati: $total");
@@ -93,7 +95,7 @@ class LeagueHistoryScraperService
     /**
      * Scrapes the standings for a specific season URL.
      */
-    protected function scrapeSeasonStandings(string $url, int $year): array
+    protected function scrapeSeasonStandings(string $url, int $year, bool $saveStandings = false): array
     {
         $html = $this->getHtmlWithProxy($url);
         if (!$html) {
@@ -129,16 +131,46 @@ class LeagueHistoryScraperService
                 return;
             }
 
-            $team = Team::where('fbref_id', $fbrefId)->first() ?: Team::where('name', $teamName)->first();
+            // Ricerca intelligente della squadra (esatto -> short_name -> contains) via Trait
+            $team = Team::where('fbref_id', $fbrefId)->first();
+            
+            if (!$team) {
+                $teamId = $this->findTeamIdByName($teamName);
+                if ($teamId) {
+                    $team = Team::find($teamId);
+                }
+            }
             
             if (!$team) {
                 $team = Team::create([
                     'name' => $teamName,
+                    'short_name' => $teamName,
                     'fbref_id' => $fbrefId,
                     'fbref_url' => "https://fbref.com$teamUrl",
-                    'serie_a_team' => 0,
-                    'season_year' => $year,
                 ]);
+            } elseif (empty($team->fbref_id) || empty($team->short_name)) {
+                // Colleghiamo la squadra esistente (creata via API) all'ID FBref per i futuri lookup
+                // E assicuriamoci di popolare lo short_name se manca
+                $team->update([
+                    'fbref_id' => $team->fbref_id ?: $fbrefId,
+                    'fbref_url' => $team->fbref_url ?: "https://fbref.com$teamUrl",
+                    'short_name' => $team->short_name ?: $teamName,
+                ]);
+            }
+
+            // Assicuriamoci che esista il record in team_season per collegare la squadra alla stagione
+            $seasonModel = \App\Models\Season::where('season_year', $year)->first();
+            if ($seasonModel) {
+                \App\Models\TeamSeason::updateOrCreate(
+                    [
+                        'team_id' => $team->id,
+                        'season_id' => $seasonModel->id,
+                    ],
+                    [
+                        'league_id' => \App\Models\League::where('api_id', 2019)->first()?->id ?? 1,
+                        'is_active' => true,
+                    ]
+                );
             }
 
             $safeGet = function($selector, $type = 'text') use ($row) {
@@ -150,53 +182,80 @@ class LeagueHistoryScraperService
             $rank = (int) $safeGet('td[data-stat="rank"]');
             if ($rank === 0) $rank = (int) $safeGet('th[data-stat="rank"]');
 
-            $data = [
-                'team_id' => $team->id,
-                'season_year' => $year,
-                'league_name' => 'Serie A',
-                'position' => $rank,
-                'played_games' => (int) $safeGet('td[data-stat="games"]'),
-                'won' => (int) $safeGet('td[data-stat="wins"]'),
-                'draw' => (int) $safeGet('td[data-stat="draws"]'),
-                'lost' => (int) $safeGet('td[data-stat="losses"]'),
-                'goals_for' => (int) $safeGet('td[data-stat="goals_for"]'),
-                'goals_against' => (int) $safeGet('td[data-stat="goals_against"]'),
-                'goal_difference' => (int) $safeGet('td[data-stat="goal_diff"]'),
-                'points' => (int) $safeGet('td[data-stat="points"]'),
-                'data_source' => 'fbref',
-            ];
+            if ($saveStandings) {
+                $data = [
+                    'team_id' => $team->id,
+                    'season_year' => $year,
+                    'league_name' => 'Serie A',
+                    'position' => $rank,
+                    'played_games' => (int) $safeGet('td[data-stat="games"]'),
+                    'won' => (int) $safeGet('td[data-stat="wins"]'),
+                    'draw' => (int) $safeGet('td[data-stat="draws"]'),
+                    'lost' => (int) $safeGet('td[data-stat="losses"]'),
+                    'goals_for' => (int) $safeGet('td[data-stat="goals_for"]'),
+                    'goals_against' => (int) $safeGet('td[data-stat="goals_against"]'),
+                    'goal_difference' => (int) $safeGet('td[data-stat="goal_diff"]'),
+                    'points' => (int) $safeGet('td[data-stat="points"]'),
+                    'data_source' => 'fbref',
+                ];
 
-            $standing = TeamHistoricalStanding::updateOrCreate(
-                ['team_id' => $team->id, 'season_year' => $year, 'league_name' => 'Serie A'],
-                $data
-            );
+                $standing = TeamHistoricalStanding::updateOrCreate(
+                    ['team_id' => $team->id, 'season_year' => $year, 'league_name' => 'Serie A'],
+                    $data
+                );
 
-            if ($standing->wasRecentlyCreated) $stats['created']++; else $stats['updated']++;
+                if ($standing->wasRecentlyCreated) $stats['created']++; else $stats['updated']++;
+            }
         });
 
         return $stats;
     }
 
     /**
-     * Esegue la chiamata tramite ProxyManager.
+     * Esegue la chiamata tramite ProxyManager con tracciamento diagnostico.
      */
     protected function getHtmlWithProxy(string $url): ?string
     {
         $proxyManager = app(ProxyManagerService::class);
         $proxy = $proxyManager->getActiveProxy();
-        if (!$proxy) return null;
+        if (!$proxy) {
+            $this->log("🛑 [DIAG] Nessun proxy disponibile.");
+            return null;
+        }
 
         try {
-            $providerClass = 'App\\Services\\ProxyProviders\\ScraperApiProvider';
-            $proxyUrl = app($providerClass)->getProxyUrl($proxy, $url);
+            $proxyUrl = $proxyManager->getProxyUrl($proxy, $url);
             
+            // Mascheriamo la chiave per il log ma verifichiamo la struttura
+            $maskedUrl = preg_replace('/api_key=[^&]+/', 'api_key=********', $proxyUrl);
+            $this->log("📡 [REQ START] Provider: {$proxy->name} | Target: $url");
+            $this->log("🔗 [PROXY URL] $maskedUrl");
+
+            $startTime = microtime(true);
             $response = Http::timeout(120)->get($proxyUrl);
+            $duration = round(microtime(true) - $startTime, 2);
+
+            // Sincronizzazione automatica del saldo dopo ogni chiamata per tracciabilità crediti
+            try {
+                $proxyManager->syncBalance($proxy);
+            } catch (\Exception $e) {
+                $this->log("⚠️ [SYNC ERROR] Impossibile aggiornare saldo proxy: " . $e->getMessage());
+            }
+
+            $this->log("📥 [RES END] Status: " . $response->status() . " | Durata: {$duration}s | Size: " . strlen($response->body()) . " bytes");
+
+            // Salviamo un dump della risposta per l'analisi visiva
+            $dumpPath = storage_path('logs/Imports/debug_fbref.html');
+            File::put($dumpPath, $response->body());
+            $this->log("💾 [DUMP] Salvato in: $dumpPath");
 
             if ($response->successful()) {
                 return $response->body();
+            } else {
+                $this->log("❌ [RES ERROR] " . $response->status() . " - " . substr($response->body(), 0, 200));
             }
         } catch (\Exception $e) {
-            $this->log("❌ Proxy Error ($url): " . $e->getMessage());
+            $this->log("🔥 [EXCEPTION] " . $e->getMessage());
         }
 
         return null;

@@ -47,10 +47,9 @@
                     <h4 class="font-bold text-green-700 dark:text-green-400 uppercase tracking-wider text-xs">Workflow Consigliato</h4>
                     <div class="bg-white dark:bg-gray-900 p-3 rounded border border-gray-200 dark:border-gray-700 shadow-sm">
                         <ol class="list-decimal ml-4 space-y-1 text-xs">
-                            <li><strong>Import:</strong> Clicca "Sincronizza Squadre".</li>
-                            <li><strong>Verifica:</strong> Controlla che i loghi siano visibili.</li>
-                            <li><strong>Mapping:</strong> Inserisci l'URL FBref dove manca (Status Rosso).</li>
-                            <li><strong>Prossimo Step:</strong> Vai su <em>Giocatori</em> per l'importazione rosa.</li>
+                            <li><strong>STEP 1:</strong> Vai in 'Gestione Stagione' e usa 'Sincronizza Stagioni da Api' per creare l'anno.</li>
+                            <li><strong>STEP 2:</strong> Torna qui in '1. Squadre', clicca su 'Sincronizza Squadre' e scegli l'anno.</li>
+                            <li><strong>STEP 3:</strong> Seleziona la sorgente (API o FBref) e avvia il download.</li>
                         </ol>
                     </div>
                 </div>

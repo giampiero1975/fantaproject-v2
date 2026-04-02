@@ -87,6 +87,15 @@ class ProxyManagerService
     }
 
     /**
+     * Genera l'URL del proxy usando il provider corretto.
+     */
+    public function getProxyUrl(ProxyService $proxy, string $targetUrl): string
+    {
+        $providerClass = $this->providers[$proxy->name] ?? ScraperApiProvider::class;
+        return app($providerClass)->getProxyUrl($proxy, $targetUrl);
+    }
+
+    /**
      * Sincronizza tutti i bilanci.
      */
     public function syncBalances(): void
@@ -120,8 +129,10 @@ class ProxyManagerService
                 'current_usage' => $balance['used'],
                 'limit_monthly' => $balance['limit'],
             ]);
+            $proxy->touch(); // Forza updated_at anche se i valori sono identici
 
             $this->audit("Sincronizzazione '{$proxy->name}': {$balance['used']}/{$balance['limit']}", 'info', $proxy->slug);
+            Log::info("[ProxySync] Sincronizzazione '{$proxy->name}' completata ({$balance['used']}/{$balance['limit']})");
         } catch (\Exception $e) {
             $this->audit("Errore sincronizzazione '{$proxy->name}': " . $e->getMessage(), 'error', $proxy->slug);
             throw $e;
