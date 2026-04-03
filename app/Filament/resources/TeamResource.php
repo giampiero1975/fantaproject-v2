@@ -31,16 +31,20 @@ class TeamResource extends Resource
             ->schema([
                 Forms\Components\TextInput::make('name')
                 ->required()
-                ->maxLength(255),
-                Forms\Components\TextInput::make('official_name')
                 ->maxLength(255)
-                ->label('Nome Ufficiale'),
+                ->label('Nome Completo'),
+                Forms\Components\TextInput::make('short_name')
+                ->maxLength(255)
+                ->label('Nome Breve (per matching)'),
                 Forms\Components\TextInput::make('api_id')
                 ->numeric()
                 ->label('ID API'),
                 Forms\Components\TextInput::make('fbref_url')
                 ->url()
                 ->label('URL FBref'),
+                Forms\Components\TextInput::make('fbref_id')
+                ->maxLength(20)
+                ->label('ID FBref'),
             ])->columns(2),
         ]);
     }
@@ -55,6 +59,10 @@ class TeamResource extends Resource
             ->label('Logo')
             ->circular(),
             Tables\Columns\TextColumn::make('name')
+            ->searchable()
+            ->sortable(),
+            Tables\Columns\TextColumn::make('short_name')
+            ->label('Nome Breve')
             ->searchable()
             ->sortable(),
             Tables\Columns\TextColumn::make('tier_globale')
@@ -142,20 +150,31 @@ class TeamResource extends Resource
             ),
         ])
         ->actions([
-            Tables\Actions\EditAction::make()
-                ->visible(fn ($record) => !empty($record->fbref_id)),
+            Tables\Actions\EditAction::make(),
             Tables\Actions\Action::make('align_fbref')
                 ->label('Allinea FBref')
                 ->color('danger')
                 ->icon('heroicon-o-link')
-                ->requiresConfirmation()
                 ->hidden(fn ($record) => !empty($record->fbref_id))
-                ->action(function (Team $record) {
+                ->form([
+                    Forms\Components\TextInput::make('fbref_url')
+                        ->label('URL FBref')
+                        ->helperText('https://fbref.com/en/squads/dc56fe14/Milan-Stats')
+                        ->url()
+                        ->required()
+                        ->default(fn ($record) => $record->fbref_url),
+                    Forms\Components\TextInput::make('fbref_id')
+                        ->label('ID FBref')
+                        ->helperText('Es: dc56fe14')
+                        ->default(fn ($record) => $record->fbref_id),
+                ])
+                ->action(function (Team $record, array $data) {
                     try {
                         $service = app(\App\Services\TeamFbrefAlignmentService::class);
-                        $success = $service->alignTeam($record);
+                        $success = $service->alignManual($record, $data['fbref_url'], $data['fbref_id'] ?? null);
 
                         if ($success) {
+
                             Notification::make()
                                 ->title('Allineamento Riuscito')
                                 ->body("Squadra '{$record->name}' mappata con successo.")
@@ -163,8 +182,8 @@ class TeamResource extends Resource
                                 ->send();
                         } else {
                             Notification::make()
-                                ->title('Match Fallito')
-                                ->body("Nessun URL FBref trovato o valido per '{$record->name}'.")
+                                ->title('Validazione Fallita')
+                                ->body("L'URL fornito non è stato validato (possibile errore proxy o 404).")
                                 ->danger()
                                 ->send();
                         }
@@ -177,6 +196,7 @@ class TeamResource extends Resource
                     }
                 }),
         ]);
+
     }
     public static function getPages(): array
     {

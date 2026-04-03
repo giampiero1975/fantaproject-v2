@@ -12,8 +12,6 @@ class ProxyManagerService
 {
     protected array $providers = [
         'ScraperAPI' => \App\Services\ProxyProviders\ScraperApiProvider::class,
-        'WebScraping.ai' => \App\Services\ProxyProviders\WebScrapingAiProvider::class,
-        'Crawlbase' => \App\Services\ProxyProviders\CrawlbaseProvider::class,
         'ScrapingBee' => \App\Services\ProxyProviders\ScrapingBeeProvider::class,
         'ZenRows' => \App\Services\ProxyProviders\ZenRowsProvider::class,
     ];

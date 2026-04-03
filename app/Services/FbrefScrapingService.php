@@ -94,20 +94,39 @@ class FbrefScrapingService
      * Estrae la classifica di Serie A per mappare Squadre -> URL
      * URL: https://fbref.com/en/comps/11/Serie-A-Stats
      */
-    public function scrapeSerieAStandings(): array
+    public function scrapeSerieAStandings(?int $year = null): array
     {
+        // Default URL per la stagione corrente
         $url = "https://fbref.com/en/comps/11/Serie-A-Stats";
+        
+        if ($year) {
+            // Formato richiesto: 2025-2026/2025-2026-Serie-A-Stats
+            $nextYear = $year + 1;
+            $season = "{$year}-{$nextYear}";
+            $url = "https://fbref.com/en/comps/11/{$season}/{$season}-Serie-A-Stats";
+        }
+
         Log::info("Inizio Scraping Classifica Serie A: {$url}");
 
         try {
             $crawler = $this->fetchPageWithProxy($url);
             
-            // Cerchiamo la tabella della classifica (solitamente ha id dinamico basato sull'anno)
-            // Usiamo un selettore più generico o cerchiamo l'id che inizia con results
+            // Cerchiamo la tabella della classifica
+            // Prova 1: ID che inizia con 'results' (standard FBref)
             $table = $crawler->filter('table[id^="results"]')->first();
             
+            // Prova 2: Se la Prova 1 fallisce, cerca qualsiasi stats_table che contenga la classifica
             if ($table->count() === 0) {
-                throw new \Exception("Tabella classifica non trovata nella pagina.");
+                $table = $crawler->filter('table.stats_table')->filterXPath('//th[contains(text(), "Squad") or contains(text(), "Team")]/ancestor::table')->first();
+            }
+
+            if ($table->count() === 0) {
+                // Prova 3: Prendi semplicemente la prima stats_table se presente
+                $table = $crawler->filter('table.stats_table')->first();
+            }
+            
+            if ($table->count() === 0) {
+                throw new \Exception("Tabella classifica non trovata nella pagina. Ids trovati: " . implode(', ', $crawler->filter('table')->each(fn($n) => $n->attr('id'))));
             }
 
             $teams = [];
@@ -140,9 +159,11 @@ class FbrefScrapingService
 
         } catch (\Exception $e) {
             Log::error("Errore durante lo scraping della classifica: " . $e->getMessage());
-            return [];
+            return []; // Ritorna vuoto per permettere il fallback manuale per ogni team
         }
+
     }
+
 
     /**
      * ANCHE QUESTA FUNZIONE ORA È "MAGRA":
@@ -150,6 +171,8 @@ class FbrefScrapingService
      */
     public function searchPlayerFbrefUrlByName(string $playerName, ?string $playerTeamShortName = null): ?string
     {
+
+
         $encodedPlayerName = urlencode($playerName);
         $searchUrl = "https://fbref.com/en/search/search.fcgi?search={$encodedPlayerName}";
         Log::info("Inizio ricerca FBref (via Trait) per: '{$playerName}'");
@@ -228,7 +251,6 @@ class FbrefScrapingService
                     return $bestMatchUrl;
                 }
             }
-            // --- FINE LOGICA DI PUNTEGGIO CORRETTA ---
 
             Log::warning("URL FBref non trovato per '{$playerName}'.");
             return null;
@@ -237,6 +259,62 @@ class FbrefScrapingService
             return null;
         }
     }
+
+
+
+    /**
+     * Cerca l'URL di una squadra su FBref tramite il motore di ricerca interno.
+     */
+
+    public function searchTeamFbrefUrlByName(string $teamName): ?string
+    {
+        $encodedTeamName = urlencode($teamName);
+        $searchUrl = "https://fbref.com/en/search/search.fcgi?search={$encodedTeamName}";
+        Log::info("Inizio ricerca Team FBref per: '{$teamName}'");
+
+        try {
+            $crawler = $this->fetchPageWithProxy($searchUrl);
+
+            // Se veniamo reindirizzati direttamente alla pagina del team
+            $teamH1 = $crawler->filter('#meta h1');
+            if ($teamH1->count() > 0) {
+                $canonicalLink = $crawler->filter('link[rel="canonical"]');
+                if ($canonicalLink->count() > 0) {
+                    $finalUrl = $canonicalLink->attr('href');
+                    if (str_contains($finalUrl, '/squads/')) {
+                        Log::info("Trovato URL Team per '{$teamName}' (Redirect): {$finalUrl}");
+                        return $finalUrl;
+                    }
+                }
+            }
+
+            // Altrimenti cerchiamo nei risultati di ricerca
+            // Prova 1: Selettore specifico div.search-item
+            $teamLink = $crawler->filter('div.search-item a')->filterXPath('//a[contains(@href, "/squads/")]')->first();
+            
+            // Prova 2: Qualsiasi link che contenga /squads/ (fallback drastico)
+            if ($teamLink->count() === 0) {
+                $teamLink = $crawler->filter('a[href*="/squads/"]')->first();
+            }
+
+            if ($teamLink->count() > 0) {
+                $finalUrl = $teamLink->attr('href');
+                if (!str_starts_with($finalUrl, 'http')) {
+                    $finalUrl = "https://fbref.com" . $finalUrl;
+                }
+                Log::info("Trovato URL Team per '{$teamName}' (Search Result): {$finalUrl}");
+                return $finalUrl;
+            }
+
+            Log::warning("URL Team FBref non trovato per '{$teamName}'. Salvataggio HTML per debug...");
+            file_put_contents(storage_path('logs/debug_fbref_search.html'), $crawler->html());
+            return null;
+        } catch (\Exception $e) {
+            Log::error("Errore (searchTeamFbrefUrlByName) per '{$teamName}': " . $e->getMessage());
+            return null;
+        }
+    }
+
 
     /**
      * Verifica lo stato del proxy e i crediti rimanenti tramite ProxyManagerService.

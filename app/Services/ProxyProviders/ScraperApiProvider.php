@@ -38,9 +38,12 @@ class ScraperApiProvider implements ProxyProviderInterface
         $params = [
             'api_key' => $apiKey,
             'url' => $targetUrl,
-            'device_type' => 'mobile',
-            'country_code' => 'it',
         ];
+
+        // FBref ora richiede premium=true per le pagine storiche /comps/
+        if (str_contains($targetUrl, 'fbref.com')) {
+            $params['premium'] = 'true';
+        }
 
         return $proxy->base_url . '?' . http_build_query($params);
     }

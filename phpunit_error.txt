@@ -1,0 +1,54 @@
+PHPUnit 11.5.48 by Sebastian Bergmann and contributors.
+
+Runtime:       PHP 8.3.4
+Configuration: C:\laragon\www\fantaproject-v2\phpunit.xml
+
+E                                                                   1 / 1 (100%)
+
+Time: 00:00.642, Memory: 44.00 MB
+
+There was 1 error:
+
+1) Tests\Feature\ProxyIntensiveTest::test_zenrows_with_spezia_2022
+Illuminate\Database\QueryException: SQLSTATE[HY000]: General error: 1 no such table: proxy_services (Connection: sqlite, Database: :memory:, SQL: select * from "proxy_services" where "proxy_services"."id" = 7 limit 1)
+
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Connection.php:838
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Connection.php:794
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Connection.php:411
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Query\Builder.php:3386
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Query\Builder.php:3371
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Query\Builder.php:3961
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Query\Builder.php:3370
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Builder.php:902
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Builder.php:884
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Concerns\BuildsQueries.php:366
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Builder.php:568
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Builder.php:615
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Support\Traits\ForwardsCalls.php:23
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Model.php:2540
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Model.php:2556
+C:\laragon\www\fantaproject-v2\tests\Feature\ProxyIntensiveTest.php:19
+
+Caused by
+PDOException: SQLSTATE[HY000]: General error: 1 no such table: proxy_services
+
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Connection.php:420
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Connection.php:827
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Connection.php:794
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Connection.php:411
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Query\Builder.php:3386
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Query\Builder.php:3371
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Query\Builder.php:3961
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Query\Builder.php:3370
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Builder.php:902
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Builder.php:884
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Concerns\BuildsQueries.php:366
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Builder.php:568
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Builder.php:615
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Support\Traits\ForwardsCalls.php:23
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Model.php:2540
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Model.php:2556
+C:\laragon\www\fantaproject-v2\tests\Feature\ProxyIntensiveTest.php:19
+
+ERRORS!
+Tests: 1, Assertions: 0, Errors: 1, PHPUnit Deprecations: 1.

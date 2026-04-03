@@ -1,0 +1,5 @@
+Season 2021: Total Teams: 20 | With FBref ID: 17 | With API ID: 18
+Season 2022: Total Teams: 20 | With FBref ID: 20 | With API ID: 18
+Season 2023: Total Teams: 20 | With FBref ID: 17 | With API ID: 20
+Season 2024: Total Teams: 20 | With FBref ID: 15 | With API ID: 20
+Season 2025: Total Teams: 20 | With FBref ID: 15 | With API ID: 20

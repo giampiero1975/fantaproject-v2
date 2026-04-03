@@ -106,6 +106,49 @@ class ListTeams extends ListRecords
                             ->send();
                     }
                 }),
+            Actions\Action::make('align_fbref_bulk')
+                ->label('Allinea FBref (Massivo)')
+                ->icon('heroicon-o-link')
+                ->color('danger')
+                ->requiresConfirmation()
+                ->modalHeading('Allineamento FBref Master')
+                ->modalDescription('Questo comando cercherà di mappare automaticamente tutte le squadre Serie A che ancora non hanno un ID FBref. Attenzione: consuma crediti Proxy.')
+                ->form([
+                    Forms\Components\Select::make('season_year')
+                        ->label('Stagione Target')
+                        ->options(\App\Helpers\SeasonHelper::getPresentSeasons())
+                        ->placeholder('Tutte le stagioni rilevate')
+                        ->hint('Se vuoto, allinea tutti i team mancanti indipendentemente dalla stagione.'),
+                ])
+                ->action(function (array $data) {
+                    try {
+                        $seasonId = $data['season_year'];
+                        $year = $seasonId ? \App\Models\Season::find($seasonId)?->season_year : null;
+                        
+                        $service = app(\App\Services\TeamFbrefAlignmentService::class);
+                        $result = $service->align($year);
+
+                        if ($result['status'] === 'success') {
+                            Notification::make()
+                                ->title('Allineamento Completato')
+                                ->body("Match riusciti: {$result['matched']}. Errori: {$result['errors']}. Chiamate Proxy: {$result['proxy_calls']}")
+                                ->success()
+                                ->send();
+                        } else {
+                            Notification::make()
+                                ->title('Errore Allineamento')
+                                ->body($result['message'])
+                                ->danger()
+                                ->send();
+                        }
+                    } catch (\Exception $e) {
+                        Notification::make()
+                            ->title('Errore Tecnico')
+                            ->body($e->getMessage())
+                            ->danger()
+                            ->send();
+                    }
+                }),
         ];
     }
 }

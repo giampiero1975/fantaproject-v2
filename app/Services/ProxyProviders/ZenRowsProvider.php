@@ -13,15 +13,15 @@ class ZenRowsProvider implements ProxyProviderInterface
 
     public function getProxyUrl(ProxyService $proxy, string $targetUrl): string
     {
+        // Correzione 422: Aggiungiamo js_render=true obbligatorio per bypassare Cloudflare.
+        
         $params = [
             'apikey' => $proxy->api_key,
             'url' => $targetUrl,
+            'premium_proxy' => 'true',
+            'proxy_country' => 'us',
+            'js_render' => 'true',
         ];
-
-        // ZenRows usa js_render=true per il rendering JS
-        if ($proxy->js_cost > 1) {
-            $params['js_render'] = 'true';
-        }
 
         return $this->baseUrl . '?' . http_build_query($params);
     }
@@ -39,9 +39,10 @@ class ZenRowsProvider implements ProxyProviderInterface
             if ($response->successful()) {
                 $data = $response->json();
                 
-                $used = $data['usage'] ?? 0;
-                $limit = $proxy->limit_monthly ?: 1000; // ZenRows trial è solitamente 1000
-                $remaining = max(0, $limit - $used);
+                // ZenRows usa 'credits_used' e 'credits_total' nella risposta v1
+                $used = $data['credits_used'] ?? 0;
+                $limit = $data['credits_total'] ?? ($proxy->limit_monthly ?: 1000);
+                $remaining = $data['credits_remaining'] ?? max(0, $limit - $used);
 
                 $this->audit($proxy, "Sincronizzazione: {$used}/{$limit}", 'info');
 

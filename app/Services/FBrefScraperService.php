@@ -129,16 +129,18 @@ class FBrefScraperService
         if ($team) {
             $team->update([
                 'fbref_id' => $fbrefId,
-                'fbref_url' => $fbrefUrl
+                'fbref_url' => $fbrefUrl,
+                'short_name' => $team->short_name ?: $name // Ripariamo lo short_name se manca
             ]);
             Log::info("FBrefScraper: Mappato '{$name}' -> ID: {$fbrefId}");
         } else {
             // Team non trovato (probabilmente Serie B o Lookback)
             Team::create([
                 'name' => $name,
+                'short_name' => $name, // Fondamentale per i futuri matching
                 'fbref_id' => $fbrefId,
                 'fbref_url' => $fbrefUrl,
-                'serie_a_team' => false, // Default per squadre non viste da API (Serie B)
+                'serie_a_team' => false,
             ]);
             Log::info("FBrefScraper: Creato nuovo team '{$name}' (ID FBref: {$fbrefId})");
         }

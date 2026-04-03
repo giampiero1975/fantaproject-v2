@@ -30,15 +30,21 @@ trait ManagesFbrefScraping
         
         Log::debug("[Trait ManagesFbrefScraping] Avvio richiesta via Proxy '{$proxy->name}' per: {$url}");
         
-        $providerClass = 'App\\Services\\ProxyProviders\\ScraperApiProvider';
-        $proxyUrl = app($providerClass)->getProxyUrl($proxy, $url);
+        $proxyUrl = $proxyManager->getProxyUrl($proxy, $url);
         
-        $response = Http::timeout(120)->get($proxyUrl);
+        Log::debug("[Trait ManagesFbrefScraping] ZenRows API URL: {$proxyUrl}");
+
+        // Torniamo alla modalità diretta (API URL) che non fallisce il parsing in Guzzle
+        // Timeout fissato a 15 secondi richiesto
+        $response = Http::timeout(15)->withoutVerifying()->get($proxyUrl);
+        $body = $response->body();
         
+        Log::debug("[Trait ManagesFbrefScraping] Response Snippet: " . substr($body, 0, 500));
+
         if ($response->successful()) {
-            return new Crawler($response->body());
+            return new Crawler($body);
         } else {
-            Log::error("[Trait ManagesFbrefScraping] Proxy '{$proxy->name}': Richiesta fallita (Status: {$response->status()})");
+            Log::error("[Trait ManagesFbrefScraping] Proxy '{$proxy->name}': Richiesta fallita (Status: {$response->status()}) Body: " . substr($body, 0, 100));
             throw new \Exception("Proxy '{$proxy->name}': Richiesta fallita (Status: {$response->status()})");
         }
     }

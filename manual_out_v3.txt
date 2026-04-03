@@ -1,0 +1,24 @@
+Testing ZenRows (ID 7) against FBref...
+Proxy URL: https://api.zenrows.com/v1?apikey=d9b8be2a7a1eecdcedeaccaa6830590c3e52bfe5&url=https%3A%2F%2Ffbref.com%2Fen%2Fcomps%2F11%2F2021-2022%2F2021-2022-Serie-A-Stats&js_render=true&antibot=true&premium_proxy=true&block_resources=image%2Cstylesheet%2Cfont&wait=3000
+
+   Illuminate\Http\Client\ConnectionException 
+
+  cURL error 28: Operation timed out after 120011 milliseconds with 0 bytes received (see https://curl.haxx.se/libcurl/c/libcurl-errors.html) for https://api.zenrows.com/v1?apikey=d9b8be2a7a1eecdcedeaccaa6830590c3e52bfe5&url=https%3A%2F%2Ffbref.com%2Fen%2Fcomps%2F11%2F2021-2022%2F2021-2022-Serie-A-Stats&js_render=true&antibot=true&premium_proxy=true&block_resources=image%2Cstylesheet%2Cfont&wait=3000
+
+  at vendor\laravel\framework\src\Illuminate\Http\Client\PendingRequest.php:1787
+    1783Ôûò      * @return void
+    1784Ôûò      */
+    1785Ôûò     protected function marshalConnectionException(ConnectException $e)
+    1786Ôûò     {
+  Ô×£ 1787Ôûò         $exception = new ConnectionException($e->getMessage(), 0, $e);
+    1788Ôûò 
+    1789Ôûò         $request = (new Request($e->getRequest()))->setRequestAttributes($this->attributes);
+    1790Ôûò 
+    1791Ôûò         $this->factory?->recordRequestResponsePair(
+
+  1   vendor\laravel\framework\src\Illuminate\Http\Client\PendingRequest.php:1067
+      Illuminate\Http\Client\PendingRequest::marshalConnectionException(Object(GuzzleHttp\Exception\ConnectException))
+
+  2   vendor\guzzlehttp\guzzle\src\Handler\CurlFactory.php:277
+      GuzzleHttp\Exception\ConnectException::("cURL error 28: Operation timed out after 120011 milliseconds with 0 bytes received (see https://curl.haxx.se/libcurl/c/libcurl-errors.html) for https://api.zenrows.com/v1?apikey=d9b8be2a7a1eecdcedeaccaa6830590c3e52bfe5&url=https%3A%2F%2Ffbref.com%2Fen%2Fcomps%2F11%2F2021-2022%2F2021-2022-Serie-A-Stats&js_render=true&antibot=true&premium_proxy=true&block_resources=image%2Cstylesheet%2Cfont&wait=3000")
+

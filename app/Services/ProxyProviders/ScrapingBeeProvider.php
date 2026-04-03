@@ -21,12 +21,12 @@ class ScrapingBeeProvider implements ProxyProviderInterface
             'url' => $targetUrl,
         ];
 
-        // Per FBref è necessario il proxy PREMIUM + STEALTH per superare Cloudflare
+        // Per FBref è necessario il bypass estremo: STEALTH + JS RENDER + WAIT FOR
         if (str_contains($targetUrl, 'fbref.com')) {
-            $params['premium_proxy'] = 'true';
+            $params['render_js'] = 'true';
             $params['stealth_proxy'] = 'true';
-            $params['country_code'] = 'it';
-            $params['block_resources'] = 'false'; // A volte aiuta a risolvere i challenge
+            $params['wait_for'] = '.stats_table';
+            $params['premium_proxy'] = 'true'; // Massimizza le probabilità di successo
         }
 
         return $this->baseUrl . '?' . http_build_query($params);

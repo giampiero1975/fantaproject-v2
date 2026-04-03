@@ -1,0 +1,53 @@
+{
+    "2021": {
+        "total": 20,
+        "missing_fbref": [
+            "Cagliari Calcio",
+            "Genoa CFC",
+            "Venezia FC"
+        ],
+        "missing_api": [
+            "Sampdoria",
+            "Spezia Calcio"
+        ]
+    },
+    "2022": {
+        "total": 20,
+        "missing_fbref": [],
+        "missing_api": [
+            "Sampdoria",
+            "Spezia Calcio"
+        ]
+    },
+    "2023": {
+        "total": 20,
+        "missing_fbref": [
+            "Cagliari Calcio",
+            "Genoa CFC",
+            "Frosinone Calcio"
+        ],
+        "missing_api": []
+    },
+    "2024": {
+        "total": 20,
+        "missing_fbref": [
+            "Cagliari Calcio",
+            "Genoa CFC",
+            "Parma Calcio 1913",
+            "Venezia FC",
+            "Como 1907"
+        ],
+        "missing_api": []
+    },
+    "2025": {
+        "total": 20,
+        "missing_fbref": [
+            "Cagliari Calcio",
+            "Genoa CFC",
+            "Parma Calcio 1913",
+            "AC Pisa 1909",
+            "Como 1907"
+        ],
+        "missing_api": []
+    }
+}
