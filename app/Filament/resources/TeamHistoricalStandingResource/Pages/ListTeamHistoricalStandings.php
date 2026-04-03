@@ -21,52 +21,65 @@ class ListTeamHistoricalStandings extends ListRecords
     {
         return [
             Actions\Action::make('bulk_sync_history')
-                ->label('Step 2: Sync Storico Lookback (4 Anni Conclusi)')
+                ->label('Step 2: Sync Storico Lookback (4 Anni - Tutte le Leghe)')
                 ->icon('heroicon-o-arrow-path')
                 ->color('success')
                 ->requiresConfirmation()
+                ->modalDescription('Questa operazione sincronizzerà le ultime 4 stagioni concluse per TUTTE le leghe configurate (Serie A e Serie B).')
                 ->action(function (\App\Services\LeagueHistoryScraperService $service) {
                     $seasons = \App\Helpers\SeasonHelper::getCompletedLookbackSeasons(4);
+                    $leagues = \App\Models\League::whereNotNull('fbref_id')->get();
+                    
                     $totalCreated = 0;
                     $totalUpdated = 0;
 
-                    foreach (array_keys($seasons) as $year) {
-                        $result = $service->scrapeSeason((int) $year, true);
-                        if ($result['status'] === 'success') {
-                            $totalCreated += $result['stats']['created'];
-                            $totalUpdated += $result['stats']['updated'];
+                    foreach ($leagues as $league) {
+                        foreach (array_keys($seasons) as $year) {
+                            $result = $service->scrapeSeason((int) $year, true, $league);
+                            if ($result['status'] === 'success') {
+                                $totalCreated += $result['stats']['created'];
+                                $totalUpdated += $result['stats']['updated'];
+                            }
                         }
                     }
 
                     Notification::make()
                         ->title("Sync Globale Completato!")
-                        ->body("Elaborate 4 stagioni. Record Creati: {$totalCreated}, Record Aggiornati: {$totalUpdated}")
+                        ->body("Elaborate 4 stagioni per " . $leagues->count() . " leghe. Totale Creati: {$totalCreated}, Totale Aggiornati: {$totalUpdated}")
                         ->success()
                         ->send();
                 }),
 
-            Actions\Action::make('fetch_history')->label('Sincronizza Singola Stagione')
+            Actions\Action::make('fetch_history')
+                ->label('Sincronizza Singola Stagione')
                 ->icon('heroicon-o-calendar-days')
                 ->color('warning')
                 ->form([
-                    Select::make('seasonYear')->label('Quale stagione vuoi scaricare?')
-                    ->options(\App\Helpers\SeasonHelper::getLookbackSeasons(10))
-                    ->default(\App\Helpers\SeasonHelper::getCurrentSeason())
-                    ->required()
+                    Select::make('seasonYear')
+                        ->label('Stagione (Inizio Anno)')
+                        ->options(\App\Helpers\SeasonHelper::getCompletedLookbackSeasons(4))
+                        ->default(\App\Helpers\SeasonHelper::getCurrentSeason() - 1)
+                        ->required(),
+                    Select::make('league_id')
+                        ->label('Lega')
+                        ->options(\App\Models\League::whereNotNull('fbref_id')->pluck('name', 'id'))
+                        ->required(),
                 ])
                 ->action(function (array $data, \App\Services\LeagueHistoryScraperService $service) {
                     $year = (int) $data['seasonYear'];
-                    $result = $service->scrapeSeason($year, true);
+                    $league = \App\Models\League::find($data['league_id']);
+                    
+                    $result = $service->scrapeSeason($year, true, $league);
 
                     if ($result['status'] === 'success') {
                         $stats = $result['stats'];
-                        Notification::make()->title("Sincronizzazione stagione {$year} completata!")
+                        Notification::make()->title("Sincronizzazione {$league->name} {$year} completata!")
                             ->body("Creati: {$stats['created']}, Aggiornati: {$stats['updated']}")
                             ->success()
                             ->send();
                     } else {
-                        Notification::make()->title("Sincronizzazione fallita per il {$year}")
-                            ->body($result['message'] ?? "Errore sconosciuto. Controlla il log in storage/logs/history_import.log")
+                        Notification::make()->title("Sincronizzazione fallita per {$league->name} {$year}")
+                            ->body($result['message'] ?? "Errore sconosciuto.")
                             ->danger()
                             ->send();
                     }

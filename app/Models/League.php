@@ -9,7 +9,7 @@ class League extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['name', 'country_code', 'api_id'];
+    protected $fillable = ['name', 'country_code', 'api_id', 'fbref_id'];
 
     public function teamSeasons()
     {

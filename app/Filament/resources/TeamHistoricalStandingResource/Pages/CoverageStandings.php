@@ -37,29 +37,33 @@ class CoverageStandings extends Page
             ->form([
                 Select::make('year')
                 ->label('Stagione (Inizio Anno)')
-                ->options(\App\Helpers\SeasonHelper::getCompletedLookbackSeasons(10))
+                ->options(\App\Helpers\SeasonHelper::getCompletedLookbackSeasons(4))
                 ->default(\App\Helpers\SeasonHelper::getCurrentSeason() - 1)
                 ->required(),
-                Select::make('division')
+                Select::make('league_id')
                 ->label('Divisione')
-                ->options(['A' => 'Serie A', 'B' => 'Serie B'])
-                ->default('A')
+                ->options(\App\Models\League::pluck('name', 'id'))
+                ->default(fn() => \App\Models\League::where('name', 'Serie A')->value('id'))
                 ->required(),
             ])
             ->action(function (array $data, TeamDataService $service) {
                 try {
                     $year = (int)$data['year'];
+                    $league = \App\Models\League::find($data['league_id']);
+
+                    if (!$league || empty($league->fbref_id)) {
+                        throw new \Exception("Lega non configurata correttamente.");
+                    }
+
                     $nextYear = $year + 1;
-                    $div = $data['division'];
-                    $compId = ($div === 'A') ? 11 : 18;
-                    $divName = ($div === 'A') ? 'Serie-A' : 'Serie-B';
+                    $slug = \Illuminate\Support\Str::slug($league->name);
                     
                     // Composizione automatica dell'URL di FBref
-                    $url = "https://fbref.com/en/comps/{$compId}/{$year}-{$nextYear}/{$year}-{$nextYear}-{$divName}-Stats";
+                    $url = "https://fbref.com/en/comps/{$league->fbref_id}/{$year}-{$nextYear}/{$year}-{$nextYear}-{$slug}-Stats";
                     
-                    $service->scrapeFromFbrefUrl($url, $year, $div);
+                    $service->scrapeFromFbrefUrl($url, $year, $league->name);
                     
-                    Notification::make()->title("Sincronizzazione {$divName} {$year}/{$nextYear} completata!")->success()->send();
+                    Notification::make()->title("Sincronizzazione {$league->name} {$year}/{$nextYear} completata!")->success()->send();
                     $this->mount($service); // Ricarica la matrice
                     
                 } catch (\Exception $e) {

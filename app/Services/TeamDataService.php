@@ -21,6 +21,16 @@ class TeamDataService
         $logger = Log::build(['driver' => 'single', 'path' => $logPath]);
         $logger->info("--- 🚀 AVVIO SINCRONIZZAZIONE AVANZATA ---");
         
+        // RECUPERO LEAGUE DINAMICO (Risanamento Step 2)
+        // Se division è 'A' o 'B', mappiamo ai nomi a DB. Se è già il nome campionato, meglio ancora.
+        $leagueName = ($division === 'A') ? 'Serie A' : (($division === 'B') ? 'Serie B' : $division);
+        $league = \App\Models\League::where('name', $leagueName)->first();
+        
+        if (!$league || empty($league->fbref_id)) {
+            $logger->error("Errore: Lega '{$leagueName}' non trovata o manca fbref_id a DB.");
+            throw new \Exception("Lega '{$leagueName}' non configurata correttamente per lo scraping.");
+        }
+
         // 1. Definiamo i Target (Squadre attive nella stagione/competizione indicata)
         $currentSeasonModel = \App\Models\Season::where('season_year', $year)->first();
         $seasonId = $currentSeasonModel ? $currentSeasonModel->id : 0;
@@ -63,7 +73,6 @@ class TeamDataService
         
         $upsertData = []; // Accumulatore per le righe da inserire
         
-        // 4. Algoritmo di Matching (ID -> Short Name Slug -> Full Name Slug -> Fuzzy)
         foreach ($targetTeams as $team) {
             $logger->info("🧐 Analisi Target: {$team->name} (DB ID: {$team->id})");
             
@@ -75,21 +84,18 @@ class TeamDataService
                 $slugDbName = Str::slug($team->name);
                 $slugDbShort = Str::slug($team->short_name ?? '');
                 
-                // LIVELLO 1: Match per FBref ID (Infallibile)
                 if (!empty($team->fbref_id) && isset($values['fbref_id']) && $team->fbref_id === $values['fbref_id']) {
                     $foundRow = $values;
                     $matchReason = "ID Univoco";
                     break;
                 }
                 
-                // LIVELLO 2: Match per Slug (Short Name o Full Name)
                 if ($slugFbref === $slugDbShort || $slugFbref === $slugDbName) {
                     $foundRow = $values;
                     $matchReason = "Slug Match";
                     break;
                 }
                 
-                // LIVELLO 3: Fuzzy Match (Contenuto stringa)
                 if (str_contains($slugDbName, $slugFbref) || str_contains($slugFbref, $slugDbName)) {
                     $foundRow = $values;
                     $matchReason = "Fuzzy Match (Similitudine)";
@@ -101,9 +107,8 @@ class TeamDataService
                 $saveData = [
                     'team_id' => $team->id,
                     'season_year' => $year,
-                    'league_name' => ($division === 'A') ? 'Serie A' : 'Serie B',
+                    'league_name' => $league->name,
                     'data_source' => 'SCRAPER_V2_ADVANCED',
-                    'created_at' => now(), // Fisso: Valorizzazione iniziale per nuovi insert
                     'updated_at' => now(),
                 ];
                 
@@ -113,29 +118,24 @@ class TeamDataService
                 }
                 
                 $upsertData[] = $saveData;
-                
-                Log::info("✅ Match trovato: {$team->name}");
-                $logger->info("✔️ Successo: Match trovato via [$matchReason]. Preparato per salvataggio.");
+                $logger->info("✔️ Successo: Match trovato via [$matchReason].");
             } else {
-                Log::warning("⚠️ Mancante: {$team->name}");
                 $logger->warning("❌ Fallimento: Impossibile trovare dati per '{$team->name}' su FBref.");
             }
         }
         
-        // Operazione database: Bulk Upsert! (Unico salvataggio invece di N query)
         if (!empty($upsertData)) {
             DB::table('team_historical_standings')->upsert(
                 $upsertData,
                 ['team_id', 'season_year'],
                 ['league_name', 'data_source', 'updated_at', 'position', 'played_games', 'won', 'draw', 'lost', 'points', 'goals_for', 'goals_against', 'goal_difference']
             );
-            $logger->info("✔️ Operazione completata: Inserite o aggiornate " . count($upsertData) . " righe in massa.");
             
             DB::table('import_logs')->insert([
                 'original_file_name' => substr($url, 0, 250),
                 'import_type' => 'team_standing_batch',
                 'status' => 'success',
-                'details' => json_encode(['season_year' => $year, 'league_name' => ($division === 'A') ? 'Serie A' : 'Serie B']),
+                'details' => json_encode(['season_year' => $year, 'league_name' => $league->name]),
                 'rows_processed' => $targetTeams->count(),
                 'rows_updated' => count($upsertData),
                 'created_at' => now(),

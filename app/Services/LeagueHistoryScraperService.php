@@ -15,7 +15,6 @@ class LeagueHistoryScraperService
 {
     use \App\Traits\FindsTeam;
 
-    protected string $historyUrl = 'https://fbref.com/en/comps/11/history/Serie-A-Seasons';
     protected string $logChannel = 'history_import';
 
     /**
@@ -27,7 +26,13 @@ class LeagueHistoryScraperService
         set_time_limit(0);
         ini_set('memory_limit', '512M');
 
-        $this->log("--- INIZIO IMPORT STORICO SERIE A (ProxyManager) ---");
+        $this->log("--- INIZIO IMPORT STORICO (ProxyManager) ---");
+
+        // RECUPERO LEAGUE (Default Serie A per compatibilità o parametrizzabile)
+        $league = \App\Models\League::where('name', 'Serie A')->first();
+        if (!$league || empty($league->fbref_id)) {
+             return ['status' => 'error', 'message' => 'Lega non configurata a DB'];
+        }
 
         // 1. Check Proxy Budget
         $proxy = app(ProxyManagerService::class)->getActiveProxy();
@@ -36,14 +41,17 @@ class LeagueHistoryScraperService
             return ['status' => 'error', 'message' => 'Budget insufficiente'];
         }
 
-        // 2. Recupero Stagioni Target
-        $targetSeasons = SeasonHelper::getLookbackSeasons(5);
+        // 2. Recupero Stagioni Target (Lookback 4 anni come da regola)
+        $targetSeasons = SeasonHelper::getCompletedLookbackSeasons(4);
         $this->log("🔍 Stagioni da analizzare: " . implode(', ', array_keys($targetSeasons)));
 
         // 3. Scarico Pagina History Principale
-        $html = $this->getHtmlWithProxy($this->historyUrl);
+        $slug = \Illuminate\Support\Str::slug($league->name);
+        $historyUrl = "https://fbref.com/en/comps/{$league->fbref_id}/history/{$slug}-Seasons";
+        
+        $html = $this->getHtmlWithProxy($historyUrl);
         if (!$html) {
-            $this->log("❌ Impossibile scaricare la pagina history.");
+            $this->log("❌ Impossibile scaricare la pagina history per {$league->name}.");
             return ['status' => 'error', 'message' => 'Download fallito'];
         }
 
@@ -64,7 +72,7 @@ class LeagueHistoryScraperService
             }
 
             $this->log("📂 Analisi Stagione: $seasonLabel ($seasonYear)");
-            $stats = $this->scrapeSeasonStandings($seasonUrl, $seasonYear, false); // Default: don't save standings
+            $stats = $this->scrapeSeasonStandings($seasonUrl, $seasonYear, $league, false); // Default: don't save standings
             
             $importStats['created'] += $stats['created'];
             $importStats['updated'] += $stats['updated'];
@@ -75,20 +83,24 @@ class LeagueHistoryScraperService
         return ['status' => 'success', 'stats' => $importStats];
     }
 
-    public function scrapeSeason(int $year, bool $saveStandings = true): array
+    public function scrapeSeason(int $year, bool $saveStandings = true, ?\App\Models\League $league = null): array
     {
-        $this->log("🔍 Avvio scraping stagionale mirato per l'anno: $year (Salvataggio: " . ($saveStandings ? 'SI' : 'NO') . ")");
+        $league = $league ?? \App\Models\League::where('name', 'Serie A')->first();
+        if (!$league || empty($league->fbref_id)) return ['status' => 'error', 'message' => 'Lega non configurata'];
+
+        $this->log("🔍 Avvio scraping stagionale [{$league->name}] per l'anno: $year");
         
         $proxy = app(ProxyManagerService::class)->getActiveProxy();
         if (!$proxy) return ['status' => 'error', 'message' => 'Proxy non disponibile'];
 
         $nextYear = $year + 1;
-        $url = "https://fbref.com/en/comps/11/{$year}-{$nextYear}/{$year}-{$nextYear}-Serie-A-Stats";
+        $slug = \Illuminate\Support\Str::slug($league->name);
+        $url = "https://fbref.com/en/comps/{$league->fbref_id}/{$year}-{$nextYear}/{$year}-{$nextYear}-{$slug}-Stats";
         
-        $stats = $this->scrapeSeasonStandings($url, $year, $saveStandings);
+        $stats = $this->scrapeSeasonStandings($url, $year, $league, $saveStandings);
         
         $total = $stats['created'] + $stats['updated'];
-        $this->log("✅ Fine scraping $year. Importati/Aggiornati: $total");
+        $this->log("✅ Fine scraping {$league->name} $year. Importati/Aggiornati: $total");
 
         return ['status' => 'success', 'stats' => $stats];
     }
@@ -96,7 +108,7 @@ class LeagueHistoryScraperService
     /**
      * Scrapes the standings for a specific season URL.
      */
-    protected function scrapeSeasonStandings(string $url, int $year, bool $saveStandings = false): array
+    protected function scrapeSeasonStandings(string $url, int $year, \App\Models\League $league, bool $saveStandings = false): array
     {
         $html = $this->getHtmlWithProxy($url);
         if (!$html) {
@@ -168,7 +180,7 @@ class LeagueHistoryScraperService
                         'season_id' => $seasonModel->id,
                     ],
                     [
-                        'league_id' => \App\Models\League::where('api_id', 2019)->first()?->id ?? 1,
+                        'league_id' => $league->id,
                         'is_active' => true,
                     ]
                 );
@@ -187,7 +199,7 @@ class LeagueHistoryScraperService
                 $data = [
                     'team_id' => $team->id,
                     'season_year' => $year,
-                    'league_name' => 'Serie A',
+                    'league_name' => $league->name,
                     'position' => $rank,
                     'played_games' => (int) $safeGet('td[data-stat="games"]'),
                     'won' => (int) $safeGet('td[data-stat="wins"]'),
@@ -201,7 +213,7 @@ class LeagueHistoryScraperService
                 ];
 
                 $standing = TeamHistoricalStanding::updateOrCreate(
-                    ['team_id' => $team->id, 'season_year' => $year, 'league_name' => 'Serie A'],
+                    ['team_id' => $team->id, 'season_year' => $year, 'league_name' => $league->name],
                     $data
                 );
 
