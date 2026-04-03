@@ -31,9 +31,22 @@ class TeamDataService
         
         Log::info("Scraper: Inizio elaborazione per " . $targetTeams->count() . " team target.");
         
-        // 2. Download via Proxy
-        $response = Http::timeout(120)->get("http://api.scraperapi.com?api_key=".env('SCRAPER_API_KEY')."&url=".urlencode($url));
-        if ($response->failed()) throw new \Exception("Errore Proxy ScraperAPI");
+        // 2. Download via Proxy (Dinamico e Resiliente)
+        $proxyManager = app(ProxyManagerService::class);
+        $proxy = $proxyManager->getActiveProxy();
+        if (!$proxy) throw new \Exception("Nessun proxy disponibile per lo scraping.");
+
+        $proxyUrl = $proxyManager->getProxyUrl($proxy, $url);
+        
+        $startTime = microtime(true);
+        $response = Http::timeout(15)->withoutVerifying()->get($proxyUrl);
+        
+        if ($response->failed()) {
+             $proxyManager->markAsUnreliable($proxy, "Status: " . $response->status());
+             throw new \Exception("Errore Proxy {$proxy->name}: " . $response->status());
+        }
+        
+        $proxyManager->syncBalance($proxy); // Aggiorna i crediti subito
         
         // 3. Parsing Universale (Scommento e Mappatura data-stat)
         $allTables = $this->parseEntirePage($response->body());
@@ -200,12 +213,12 @@ class TeamDataService
         $modDefensive  = (float) ($cfg['mod_tier_defensive']        ?? 1.10);
         $thresholds    = $cfg['tier_thresholds'] ?? [1 => 5.5, 2 => 9.5, 3 => 13.5, 4 => 17.5];
 
-        // ── Stagioni da analizzare ─────────────────────────────────────────────
-        // Esclude la stagione in corso: se siamo prima di agosto usa Y-2, altrimenti Y-1
-        $currentYear = (date('n') < 8) ? (int) date('Y') - 2 : (int) date('Y') - 1;
+        // Esclude la stagione in corso
+        $currentYear = \App\Helpers\SeasonHelper::getCurrentSeason();
+        $lastConcluded = $currentYear - 1;
         $seasons     = [];
         for ($i = 0; $i < $lookbackYears; $i++) {
-            $seasons[] = $currentYear - $i;
+            $seasons[] = $lastConcluded - $i;
         }
 
         // ── Pesi temporali ────────────────────────────────────────────────────

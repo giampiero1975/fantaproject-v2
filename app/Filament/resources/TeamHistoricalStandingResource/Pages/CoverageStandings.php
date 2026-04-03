@@ -21,18 +21,8 @@ class CoverageStandings extends Page
     
     public function mount(TeamDataService $service): void
     {
-        $currentYear = (int)date('Y');
-        $currentMonth = (int)date('n');
-        
-        // Calcolo dinamico: Agosto come soglia per la stagione conclusa
-        $lastConcludedYear = ($currentMonth < 8) ? $currentYear - 2 : $currentYear - 1;
-        
-        $this->seasons = [
-            $lastConcludedYear,
-            $lastConcludedYear - 1,
-            $lastConcludedYear - 2,
-            $lastConcludedYear - 3
-        ];
+        // Usiamo la logica centralizzata per i 4 anni conclusi
+        $this->seasons = array_keys(\App\Helpers\SeasonHelper::getCompletedLookbackSeasons(4));
         
         $this->coverageData = $service->getCoverageData($this->seasons);
     }
@@ -41,29 +31,35 @@ class CoverageStandings extends Page
     {
         return [
             Action::make('scrapeFromUrl')
-            ->label('Sincronizza da URL FBref')
+            ->label('Sincronizza Stagione Specifica')
             ->icon('heroicon-o-arrow-path')
             ->color('success')
             ->form([
-                TextInput::make('url')
-                ->label('URL Competizione FBref')
-                ->default('https://fbref.com/en/comps/18/2024-2025/2024-2025-Serie-B-Stats')
-                ->required(),
-                TextInput::make('year')
-                ->label('Anno Stagione')
-                ->numeric()
-                ->default((int)date('Y') - 1)
+                Select::make('year')
+                ->label('Stagione (Inizio Anno)')
+                ->options(\App\Helpers\SeasonHelper::getCompletedLookbackSeasons(10))
+                ->default(\App\Helpers\SeasonHelper::getCurrentSeason() - 1)
                 ->required(),
                 Select::make('division')
                 ->label('Divisione')
                 ->options(['A' => 'Serie A', 'B' => 'Serie B'])
+                ->default('A')
                 ->required(),
             ])
             ->action(function (array $data, TeamDataService $service) {
                 try {
-                    $service->scrapeFromFbrefUrl($data['url'], (int)$data['year'], $data['division']);
+                    $year = (int)$data['year'];
+                    $nextYear = $year + 1;
+                    $div = $data['division'];
+                    $compId = ($div === 'A') ? 11 : 18;
+                    $divName = ($div === 'A') ? 'Serie-A' : 'Serie-B';
                     
-                    Notification::make()->title('Sincronizzazione completata!')->success()->send();
+                    // Composizione automatica dell'URL di FBref
+                    $url = "https://fbref.com/en/comps/{$compId}/{$year}-{$nextYear}/{$year}-{$nextYear}-{$divName}-Stats";
+                    
+                    $service->scrapeFromFbrefUrl($url, $year, $div);
+                    
+                    Notification::make()->title("Sincronizzazione {$divName} {$year}/{$nextYear} completata!")->success()->send();
                     $this->mount($service); // Ricarica la matrice
                     
                 } catch (\Exception $e) {
