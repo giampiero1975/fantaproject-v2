@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\ProxyService;
+use App\Models\ImportLog;
 use App\Services\ProxyProviders\ScraperApiProvider;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\File;
@@ -185,5 +186,18 @@ class ProxyManagerService
         }
         
         Log::channel('single')->$level("[ProxyManager] " . $formattedMessage);
+
+        // AGGIUNTA: Log anche nel database per visibilità in dashboard Filament
+        try {
+            ImportLog::create([
+                'import_type'        => "Proxy" . ($slug ? ": " . strtoupper($slug) : ""),
+                'status'             => strtoupper($level),
+                'details'            => $message,
+                'original_file_name' => 'ProxyManager',
+            ]);
+        } catch (\Exception $e) {
+            // Ignoriamo silenziose se stiamo loggando e il DB ha problemi (evitiamo loop infiniti)
+            Log::error("[ProxyManager DB LOG FAIL] " . $e->getMessage());
+        }
     }
 }

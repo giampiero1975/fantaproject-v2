@@ -19,8 +19,7 @@ class SeasonHelper
 
     /**
      * Restituisce un array associativo [anno => label] per i filtri.
-     * @param int $years Numero di stagioni da includere (inclusa la corrente).
-     * Esempio: $years = 5 per stagione 2025 -> [2021, 2022, 2023, 2024, 2025].
+     * Include la stagione in corso.
      */
     public static function getLookbackSeasons(int $years = 4): array
     {
@@ -29,6 +28,25 @@ class SeasonHelper
         $seasons[$current] = self::formatYear($current) . " (In Corso)";
         
         $lastConcluded = $current - 1;
+        for ($i = 0; $i < $years; $i++) {
+            $year = $lastConcluded - $i;
+            $seasons[$year] = self::formatYear($year);
+        }
+
+        krsort($seasons);
+        return $seasons;
+    }
+
+    /**
+     * Restituisce SOLO le stagioni CONCLUSE per lo storico classifiche.
+     * Esempio: se ora è 2025/26, restituisce 2024/25, 2023/24, 2022/23, 2021/22.
+     */
+    public static function getCompletedLookbackSeasons(int $years = 4): array
+    {
+        $current = self::getCurrentSeason();
+        $lastConcluded = $current - 1;
+        $seasons = [];
+        
         for ($i = 0; $i < $years; $i++) {
             $year = $lastConcluded - $i;
             $seasons[$year] = self::formatYear($year);

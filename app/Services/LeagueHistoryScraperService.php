@@ -23,6 +23,10 @@ class LeagueHistoryScraperService
      */
     public function scrapeHistory(): array
     {
+        // Rimuoviamo i limiti per gestire sessioni lunghe con i proxy
+        set_time_limit(0);
+        ini_set('memory_limit', '512M');
+
         $this->log("--- INIZIO IMPORT STORICO SERIE A (ProxyManager) ---");
 
         // 1. Check Proxy Budget
@@ -71,12 +75,9 @@ class LeagueHistoryScraperService
         return ['status' => 'success', 'stats' => $importStats];
     }
 
-    /**
-     * Scrapes the standings for a specific season URL.
-     */
-    public function scrapeSeason(int $year): array
+    public function scrapeSeason(int $year, bool $saveStandings = true): array
     {
-        $this->log("🔍 Avvio scraping stagionale mirato per l'anno: $year");
+        $this->log("🔍 Avvio scraping stagionale mirato per l'anno: $year (Salvataggio: " . ($saveStandings ? 'SI' : 'NO') . ")");
         
         $proxy = app(ProxyManagerService::class)->getActiveProxy();
         if (!$proxy) return ['status' => 'error', 'message' => 'Proxy non disponibile'];
@@ -84,7 +85,7 @@ class LeagueHistoryScraperService
         $nextYear = $year + 1;
         $url = "https://fbref.com/en/comps/11/{$year}-{$nextYear}/{$year}-{$nextYear}-Serie-A-Stats";
         
-        $stats = $this->scrapeSeasonStandings($url, $year, false); // Sempre false quando chiamato dall'azione Teams
+        $stats = $this->scrapeSeasonStandings($url, $year, $saveStandings);
         
         $total = $stats['created'] + $stats['updated'];
         $this->log("✅ Fine scraping $year. Importati/Aggiornati: $total");
@@ -232,7 +233,9 @@ class LeagueHistoryScraperService
             $this->log("🔗 [PROXY URL] $maskedUrl");
 
             $startTime = microtime(true);
-            $response = Http::timeout(120)->get($proxyUrl);
+            
+            // Timeout fissato a 15 secondi richiesto
+            $response = Http::timeout(15)->withoutVerifying()->get($proxyUrl);
             $duration = round(microtime(true) - $startTime, 2);
 
             // Sincronizzazione automatica del saldo dopo ogni chiamata per tracciabilità crediti
@@ -264,5 +267,17 @@ class LeagueHistoryScraperService
     protected function log(string $message)
     {
         Log::channel($this->logChannel)->debug($message);
+
+        // AGGIUNTA: Log anche nel database per visibilità in dashboard
+        try {
+            \App\Models\ImportLog::create([
+                'import_type'        => 'Storico Classifiche',
+                'status'             => 'INFO',
+                'details'            => $message,
+                'original_file_name' => 'FBref History',
+            ]);
+        } catch (\Exception $e) {
+            // Ignoriamo errori di log
+        }
     }
 }
