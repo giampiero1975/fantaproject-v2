@@ -250,8 +250,8 @@ class TeamFbrefAlignmentService
             // Usiamo il ProxyManager per costruire l'URL in modo dinamico
             $proxyUrl = $proxyManager->getProxyUrl($proxy, $url);
 
-            // Timeout fissato a 15 secondi richiesto
-            $response = Http::timeout(15)->withoutVerifying()->get($proxyUrl);
+            // Timeout fissato a 40 secondi richiesto
+            $response = Http::timeout(40)->withoutVerifying()->get($proxyUrl);
 
             $status = $response->status();
             

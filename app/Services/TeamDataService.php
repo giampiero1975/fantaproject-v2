@@ -49,7 +49,7 @@ class TeamDataService
         $proxyUrl = $proxyManager->getProxyUrl($proxy, $url);
         
         $startTime = microtime(true);
-        $response = Http::timeout(15)->withoutVerifying()->get($proxyUrl);
+        $response = Http::timeout(40)->withoutVerifying()->get($proxyUrl);
         
         if ($response->failed()) {
              $proxyManager->markAsUnreliable($proxy, "Status: " . $response->status());
@@ -146,20 +146,34 @@ class TeamDataService
     
     public function getCoverageData(array $seasons)
     {
+        // Recuperiamo gli ID di tutte le squadre che hanno almeno un dato storico nei 4 anni target
+        // O che sono attive nella stagione corrente (ID 1)
         $currentSeasonModel = \App\Models\Season::where('is_current', true)->first();
-        $seasonId = $currentSeasonModel ? $currentSeasonModel->id : 0;
+        $currentSeasonId = $currentSeasonModel ? $currentSeasonModel->id : 0;
 
-        $teams = \App\Models\Team::whereHas('teamSeasons', function($q) use ($seasonId) {
-            $q->where('season_id', $seasonId)->where('is_active', true);
-        })->orderBy('name')->get();
+        $teamIdsFromStandings = DB::table('team_historical_standings')
+            ->whereIn('season_year', $seasons)
+            ->pluck('team_id')
+            ->unique();
+
+        $activeTeamIds = \App\Models\Team::whereHas('teamSeasons', function($q) use ($currentSeasonId) {
+            $q->where('season_id', $currentSeasonId)->where('is_active', true);
+        })->pluck('id');
+
+        $allTargetTeamIds = $teamIdsFromStandings->merge($activeTeamIds)->unique();
+
+        $teams = \App\Models\Team::whereIn('id', $allTargetTeamIds)
+            ->orderBy('name')
+            ->get();
+
         $matrix = [];
         foreach ($teams as $team) {
             $row = ['team_name' => $team->name];
             foreach ($seasons as $season) {
                 $row[$season] = DB::table('team_historical_standings')
-                ->where('team_id', $team->id)
-                ->where('season_year', $season)
-                ->exists();
+                    ->where('team_id', $team->id)
+                    ->where('season_year', $season)
+                    ->exists();
             }
             $matrix[] = $row;
         }

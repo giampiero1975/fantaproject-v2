@@ -19,8 +19,9 @@ class ZenRowsProvider implements ProxyProviderInterface
             'apikey' => $proxy->api_key,
             'url' => $targetUrl,
             'premium_proxy' => 'true',
-            'proxy_country' => 'us',
+            'proxy_country' => 'it', // Proviamo IT per FBref per diversificare
             'js_render' => 'true',
+            'wait_for' => '.stats_table',
         ];
 
         return $this->baseUrl . '?' . http_build_query($params);

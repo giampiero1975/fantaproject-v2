@@ -35,8 +35,8 @@ trait ManagesFbrefScraping
         Log::debug("[Trait ManagesFbrefScraping] ZenRows API URL: {$proxyUrl}");
 
         // Torniamo alla modalità diretta (API URL) che non fallisce il parsing in Guzzle
-        // Timeout fissato a 15 secondi richiesto
-        $response = Http::timeout(15)->withoutVerifying()->get($proxyUrl);
+        // Timeout fissato a 40 secondi come richiesto per stabilità proxy
+        $response = Http::timeout(40)->withoutVerifying()->get($proxyUrl);
         $body = $response->body();
         
         Log::debug("[Trait ManagesFbrefScraping] Response Snippet: " . substr($body, 0, 500));

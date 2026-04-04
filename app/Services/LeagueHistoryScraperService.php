@@ -131,7 +131,7 @@ class LeagueHistoryScraperService
         $stats = ['created' => 0, 'updated' => 0, 'skipped' => 0];
         $rows = $table->filter('tbody tr');
 
-        $rows->each(function (Crawler $row) use ($year, &$stats) {
+        $rows->each(function (Crawler $row) use ($year, $league, $saveStandings, &$stats) {
             $teamLink = $row->filter('td[data-stat="team"] a');
             if ($teamLink->count() === 0) return;
 
@@ -246,8 +246,8 @@ class LeagueHistoryScraperService
 
             $startTime = microtime(true);
             
-            // Timeout fissato a 15 secondi richiesto
-            $response = Http::timeout(15)->withoutVerifying()->get($proxyUrl);
+            // Timeout fissato a 40 secondi richiesto
+            $response = Http::timeout(40)->withoutVerifying()->get($proxyUrl);
             $duration = round(microtime(true) - $startTime, 2);
 
             // Sincronizzazione automatica del saldo dopo ogni chiamata per tracciabilità crediti

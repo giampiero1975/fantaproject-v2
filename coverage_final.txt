@@ -1,0 +1,25 @@
+Current Season:  (ID: 1)
+Active Teams: 20
+
+Team Name                     | 2021 | 2022 | 2023 | 2024
+-------------------------------------------------------
+AC Milan                      |  OK  |  OK  |  OK  |  OK  | 
+AC Pisa 1909                  |  OK  |  OK  |  OK  |  OK  | 
+ACF Fiorentina                |  OK  |  OK  |  OK  |  OK  | 
+AS Roma                       |  OK  |  OK  |  OK  |  OK  | 
+Atalanta BC                   |  OK  |  OK  |  OK  |  OK  | 
+Bologna FC 1909               |  OK  |  OK  |  OK  |  OK  | 
+Cagliari                      |  OK  |  OK  |  OK  |  OK  | 
+Como 1907                     |  OK  |  OK  |  OK  |  OK  | 
+FC Internazionale Milano      |  OK  |  OK  |  OK  |  OK  | 
+Genoa CFC                     |  OK  |  OK  |  OK  |  OK  | 
+Hellas Verona FC              |  OK  |  OK  |  OK  |  OK  | 
+Juventus FC                   |  OK  |  OK  |  OK  |  OK  | 
+Parma Calcio 1913             |  OK  |  OK  |  OK  |  OK  | 
+SS Lazio                      |  OK  |  OK  |  OK  |  OK  | 
+SSC Napoli                    |  OK  |  OK  |  OK  |  OK  | 
+Torino FC                     |  OK  |  OK  |  OK  |  OK  | 
+Udinese Calcio                |  OK  |  OK  |  OK  |  OK  | 
+US Cremonese                  |  OK  |  OK  |  OK  |  OK  | 
+US Lecce                      |  OK  |  OK  |  OK  |  OK  | 
+US Sassuolo Calcio            |  OK  |  OK  |  OK  |  OK  | 

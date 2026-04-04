@@ -43,6 +43,7 @@ class ScraperApiProvider implements ProxyProviderInterface
         // FBref ora richiede premium=true per le pagine storiche /comps/
         if (str_contains($targetUrl, 'fbref.com')) {
             $params['premium'] = 'true';
+            $params['render'] = 'true';
         }
 
         return $proxy->base_url . '?' . http_build_query($params);
