@@ -64,12 +64,13 @@ class Dashboard extends BaseDashboard
         $teamWithFbref     = Team::whereIn('id', $teamIds)->whereNotNull('fbref_id')->count();
         $fbrefRatio        = "{$teamWithFbref} / {$teamTotal}";
 
-        // ── Step 2: Historical Standings (Lookback 5 seasons) ───────────────
-        $historyYears = array_keys(SeasonHelper::getLookbackSeasons(5));
-        $standingCount  = TeamHistoricalStanding::whereIn('team_id', $teamIds)
+        // ── Step 2: Historical Standings (Lookback da PREDICTIVE_LOOKBACK_YEARS) ───
+        $lookback      = (int) config('projection_settings.tier_calculation.lookback_seasons', 4);
+        $historyYears  = array_keys(SeasonHelper::getCompletedLookbackSeasons($lookback));
+        $standingCount = TeamHistoricalStanding::whereIn('team_id', $teamIds)
             ->whereIn('season_year', $historyYears)
             ->count();
-        $standingTarget = 100; // 20 squadre * 5 anni
+        $standingTarget = count($teamIds) * $lookback; // dinamico: squadre attive * anni lookback
 
         // ── Step 3: Tiers ────────────────────────────────────────────────────
         $teamWithTier   = Team::whereIn('id', $teamIds)->whereNotNull('tier_globale')->count();
@@ -118,7 +119,7 @@ class Dashboard extends BaseDashboard
         $missingHistoryYears = array_diff($historyYears, array_keys($historyStats));
 
         $step1Ok = $teamTotal >= 20 && $teamWithApi >= 20 && $missingFbrefCount === 0 && !$fbrefIncomplete;
-        $step2Ok = $step1Ok && $coveringSeasonsCount >= 5 && $standingCount >= 80; // Soglia minima 80%? No, 100 se vogliamo perfezione. Ma 80 record su 100 è ok (promozioni).
+        $step2Ok = $step1Ok && $coveringSeasonsCount >= $lookback && $standingCount >= (int)($standingTarget * 0.8); // ok se ≥80% del target (promozioni/retrocessioni ammesse)
         $step3Ok = $step2Ok && $teamWithTier >= 20;
         $step4Ok = $step3Ok && $playerFanta >= 400;
         $step5Ok = $step4Ok && $pct >= 90;
@@ -146,7 +147,7 @@ class Dashboard extends BaseDashboard
         $fbrefMappedCount  = Team::whereNotNull('fbref_id')->count();
 
         return compact(
-            'targetSeason', 'seasonLabel', 'currentYear',
+            'targetSeason', 'seasonLabel', 'currentYear', 'lookback',
             'teamTotal', 'teamWithApi', 'teamWithShortName', 'standingCount', 'standingTarget',
             'teamWithTier', 'tierDist',
             'playerTotal', 'playerFanta', 'playerApi', 'playerOrphan', 'pct',

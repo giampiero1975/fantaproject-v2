@@ -13,10 +13,10 @@ return [
     'tier_calculation' => [
 
         // ── Lookback e pesi temporali ──────────────────────────────────────────
-        // 5 stagioni, con enfasi forte sulla più recente.
-        // VINCOLO: se lookback=5, usare sempre serie [7,4,2,1,1].
-        'lookback_seasons'     => 5,
-        'season_decay_weights' => [7, 4, 2, 1, 1],
+        // Numero di stagioni CONCLUSE da analizzare. Letto da .env (PREDICTIVE_LOOKBACK_YEARS).
+        // VINCOLO: se lookback=4, usare serie [7,4,2,1] (4 pesi, ordine decrescente).
+        'lookback_seasons'     => (int) env('PREDICTIVE_LOOKBACK_YEARS', 4),
+        'season_decay_weights' => [7, 4, 2, 1],
 
         // ── Divisore fisso ─────────────────────────────────────────────────────
         // Denominatore costante per la posizione_media pesata.

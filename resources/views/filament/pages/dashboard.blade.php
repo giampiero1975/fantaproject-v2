@@ -136,7 +136,7 @@
                     </div>
                     <div>
                         <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">Condizione</p>
-                        <p>Verifica della copertura storica dei piazzamenti per le ultime 5 stagioni.</p>
+                        <p>Verifica della copertura storica dei piazzamenti per le ultime {{ $lookback }} stagioni concluse (Serie A e B).</p>
                     </div>
                 </div>
             @endif
