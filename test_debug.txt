@@ -1,0 +1,126 @@
+PHPUnit 11.5.48 by Sebastian Bergmann and contributors.
+
+Runtime:       PHP 8.3.4
+Configuration: C:\laragon\www\fantaproject-v2\phpunit.xml
+
+E                                                                   1 / 1 (100%)
+
+Time: 00:01.285, Memory: 52.00 MB
+
+There was 1 error:
+
+1) Tests\Feature\FbrefScraperTest::test_scraping_flow_dispatches_event_and_saves_data
+Illuminate\Database\QueryException: SQLSTATE[HY000]: General error: 1 near "SET": syntax error (Connection: sqlite, Database: :memory:, SQL: SET FOREIGN_KEY_CHECKS=0;)
+
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Connection.php:838
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Connection.php:794
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Connection.php:573
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\DatabaseManager.php:491
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Support\Facades\Facade.php:363
+C:\laragon\www\fantaproject-v2\database\migrations\2026_04_01_000001_normalize_seasons_table.php:35
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Migrations\Migrator.php:517
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Migrations\Migrator.php:442
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Migrations\Migrator.php:451
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Migrations\Migrator.php:253
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Console\View\Components\Task.php:41
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Migrations\Migrator.php:812
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Migrations\Migrator.php:253
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Migrations\Migrator.php:211
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Migrations\Migrator.php:138
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Console\Migrations\MigrateCommand.php:116
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Migrations\Migrator.php:669
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Console\Migrations\MigrateCommand.php:109
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Console\Migrations\MigrateCommand.php:88
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Container\BoundMethod.php:36
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Container\Util.php:43
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Container\BoundMethod.php:96
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Container\BoundMethod.php:35
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Container\Container.php:799
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Console\Command.php:211
+C:\laragon\www\fantaproject-v2\vendor\symfony\console\Command\Command.php:341
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Console\Command.php:180
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Console\Concerns\CallsCommands.php:68
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Console\Concerns\CallsCommands.php:29
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Console\Migrations\FreshCommand.php:81
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Container\BoundMethod.php:36
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Container\Util.php:43
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Container\BoundMethod.php:96
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Container\BoundMethod.php:35
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Container\Container.php:799
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Console\Command.php:211
+C:\laragon\www\fantaproject-v2\vendor\symfony\console\Command\Command.php:341
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Console\Command.php:180
+C:\laragon\www\fantaproject-v2\vendor\symfony\console\Application.php:1079
+C:\laragon\www\fantaproject-v2\vendor\symfony\console\Application.php:356
+C:\laragon\www\fantaproject-v2\vendor\symfony\console\Application.php:195
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Console\Application.php:165
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Foundation\Console\Kernel.php:447
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Testing\PendingCommand.php:451
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Testing\PendingCommand.php:675
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Foundation\Testing\Concerns\InteractsWithConsole.php:87
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Foundation\Testing\RefreshDatabase.php:119
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Foundation\Testing\RefreshDatabase.php:84
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Foundation\Testing\RefreshDatabase.php:25
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Foundation\Testing\Concerns\InteractsWithTestCaseLifecycle.php:217
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Foundation\Testing\Concerns\InteractsWithTestCaseLifecycle.php:101
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Foundation\Testing\TestCase.php:63
+
+Caused by
+PDOException: SQLSTATE[HY000]: General error: 1 near "SET": syntax error
+
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Connection.php:578
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Connection.php:827
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Connection.php:794
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Connection.php:573
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\DatabaseManager.php:491
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Support\Facades\Facade.php:363
+C:\laragon\www\fantaproject-v2\database\migrations\2026_04_01_000001_normalize_seasons_table.php:35
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Migrations\Migrator.php:517
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Migrations\Migrator.php:442
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Migrations\Migrator.php:451
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Migrations\Migrator.php:253
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Console\View\Components\Task.php:41
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Migrations\Migrator.php:812
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Migrations\Migrator.php:253
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Migrations\Migrator.php:211
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Migrations\Migrator.php:138
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Console\Migrations\MigrateCommand.php:116
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Migrations\Migrator.php:669
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Console\Migrations\MigrateCommand.php:109
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Console\Migrations\MigrateCommand.php:88
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Container\BoundMethod.php:36
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Container\Util.php:43
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Container\BoundMethod.php:96
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Container\BoundMethod.php:35
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Container\Container.php:799
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Console\Command.php:211
+C:\laragon\www\fantaproject-v2\vendor\symfony\console\Command\Command.php:341
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Console\Command.php:180
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Console\Concerns\CallsCommands.php:68
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Console\Concerns\CallsCommands.php:29
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Console\Migrations\FreshCommand.php:81
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Container\BoundMethod.php:36
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Container\Util.php:43
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Container\BoundMethod.php:96
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Container\BoundMethod.php:35
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Container\Container.php:799
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Console\Command.php:211
+C:\laragon\www\fantaproject-v2\vendor\symfony\console\Command\Command.php:341
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Console\Command.php:180
+C:\laragon\www\fantaproject-v2\vendor\symfony\console\Application.php:1079
+C:\laragon\www\fantaproject-v2\vendor\symfony\console\Application.php:356
+C:\laragon\www\fantaproject-v2\vendor\symfony\console\Application.php:195
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Console\Application.php:165
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Foundation\Console\Kernel.php:447
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Testing\PendingCommand.php:451
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Testing\PendingCommand.php:675
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Foundation\Testing\Concerns\InteractsWithConsole.php:87
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Foundation\Testing\RefreshDatabase.php:119
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Foundation\Testing\RefreshDatabase.php:84
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Foundation\Testing\RefreshDatabase.php:25
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Foundation\Testing\Concerns\InteractsWithTestCaseLifecycle.php:217
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Foundation\Testing\Concerns\InteractsWithTestCaseLifecycle.php:101
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Foundation\Testing\TestCase.php:63
+
+ERRORS!
+Tests: 1, Assertions: 0, Errors: 1.

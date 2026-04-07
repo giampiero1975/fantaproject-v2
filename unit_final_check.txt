@@ -1,0 +1,159 @@
+PHPUnit 11.5.48 by Sebastian Bergmann and contributors.
+
+Runtime:       PHP 8.3.4
+Configuration: C:\laragon\www\fantaproject-v2\phpunit.xml
+
+...EEE
+🔍 TESTING ZENROWS URL: https://api.zenrows.com/v1/?api_key=test-key&url=https%3A%2F%2Ffbref.com%2Fen%2Fcomps%2F11%2F2024-2025%2F2024-2025-Serie-A-Stats&premium=true&render=true
+✅ STATUS CODE: 401
+📄 BODY SNIPPET: {"code":"AUTH001","detail":"No apikey information was sent in your request. Please retry by adding the apikey parameter along with your request.","instance":"/v1","status":401,"title":"No apikey provi...
+❌ EXCEPTION CAUGHT: La richiesta a ZenRows è fallita con status: 401
+Failed asserting that false is true.
+📌 TRACE: C:\laragon\www\fantaproject-v2\vendor\phpunit\phpunit\src\Framework\Constraint\Constraint.php:105
+F                                                             7 / 7 (100%)
+
+Time: 00:03.957, Memory: 56.00 MB
+
+There were 3 errors:
+
+1) Tests\Unit\Services\TeamFbrefAlignmentServiceTest::it_can_align_a_team_manually_with_provided_id_and_url
+Illuminate\Database\QueryException: SQLSTATE[HY000]: General error: 1 no such table: proxy_services (Connection: sqlite, Database: :memory:, SQL: insert into "proxy_services" ("name", "slug", "base_url", "api_key", "is_active", "priority", "updated_at", "created_at") values (Test Proxy, test-proxy, https://api.example.com, eyJpdiI6Ik5hV2p0MWNsNVU1dlBySWkrZk9lcnc9PSIsInZhbHVlIjoidUxlUHVFVHk0K0ZndFpLTzV6NW1TQT09IiwibWFjIjoiN2YwNjM2ZWFhMmI3ZGI2M2E3ODU3MDFmNTg0NTJkZTQ1Yjc4YTkzNTZkZmNkMTQzMWM2ZTdmOWZiMTg1MDYxZiIsInRhZyI6IiJ9, 1, 1, 2026-04-07 20:41:45, 2026-04-07 20:41:45))
+
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Connection.php:838
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Connection.php:794
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Connection.php:573
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Connection.php:537
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Query\Processors\Processor.php:32
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Query\Builder.php:4051
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Builder.php:2235
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Model.php:1436
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Model.php:1401
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Model.php:1240
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Builder.php:1219
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Support\helpers.php:390
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Builder.php:1218
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Support\Traits\ForwardsCalls.php:23
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Model.php:2540
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Model.php:2556
+C:\laragon\www\fantaproject-v2\tests\Unit\Services\TeamFbrefAlignmentServiceTest.php:27
+
+Caused by
+PDOException: SQLSTATE[HY000]: General error: 1 no such table: proxy_services
+
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Connection.php:578
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Connection.php:827
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Connection.php:794
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Connection.php:573
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Connection.php:537
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Query\Processors\Processor.php:32
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Query\Builder.php:4051
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Builder.php:2235
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Model.php:1436
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Model.php:1401
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Model.php:1240
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Builder.php:1219
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Support\helpers.php:390
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Builder.php:1218
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Support\Traits\ForwardsCalls.php:23
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Model.php:2540
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Model.php:2556
+C:\laragon\www\fantaproject-v2\tests\Unit\Services\TeamFbrefAlignmentServiceTest.php:27
+
+2) Tests\Unit\Services\TeamFbrefAlignmentServiceTest::it_falls_back_to_direct_search_if_standings_are_empty
+Illuminate\Database\QueryException: SQLSTATE[HY000]: General error: 1 no such table: proxy_services (Connection: sqlite, Database: :memory:, SQL: insert into "proxy_services" ("name", "slug", "base_url", "api_key", "is_active", "priority", "updated_at", "created_at") values (Test Proxy, test-proxy, https://api.example.com, eyJpdiI6IktBT1JDY1gwdzh2bWo4ZUNNMjg1OHc9PSIsInZhbHVlIjoiNFIvZ09JeVlCM0hxSElOSEZoL3M4QT09IiwibWFjIjoiNWNmNTRlOWI1ZDg0MjQ3ZDBjNDAzYTc3OGJjZWUxMmI4NmU5MWIwMGVjMzhhNjMwYTMwNTBhODkxZTJhMjAxMiIsInRhZyI6IiJ9, 1, 1, 2026-04-07 20:41:45, 2026-04-07 20:41:45))
+
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Connection.php:838
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Connection.php:794
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Connection.php:573
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Connection.php:537
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Query\Processors\Processor.php:32
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Query\Builder.php:4051
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Builder.php:2235
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Model.php:1436
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Model.php:1401
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Model.php:1240
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Builder.php:1219
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Support\helpers.php:390
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Builder.php:1218
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Support\Traits\ForwardsCalls.php:23
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Model.php:2540
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Model.php:2556
+C:\laragon\www\fantaproject-v2\tests\Unit\Services\TeamFbrefAlignmentServiceTest.php:27
+
+Caused by
+PDOException: SQLSTATE[HY000]: General error: 1 no such table: proxy_services
+
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Connection.php:578
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Connection.php:827
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Connection.php:794
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Connection.php:573
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Connection.php:537
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Query\Processors\Processor.php:32
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Query\Builder.php:4051
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Builder.php:2235
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Model.php:1436
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Model.php:1401
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Model.php:1240
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Builder.php:1219
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Support\helpers.php:390
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Builder.php:1218
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Support\Traits\ForwardsCalls.php:23
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Model.php:2540
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Model.php:2556
+C:\laragon\www\fantaproject-v2\tests\Unit\Services\TeamFbrefAlignmentServiceTest.php:27
+
+3) Tests\Unit\Services\TeamFbrefAlignmentServiceTest::it_continues_alignment_even_if_standings_scrape_fails
+Illuminate\Database\QueryException: SQLSTATE[HY000]: General error: 1 no such table: proxy_services (Connection: sqlite, Database: :memory:, SQL: insert into "proxy_services" ("name", "slug", "base_url", "api_key", "is_active", "priority", "updated_at", "created_at") values (Test Proxy, test-proxy, https://api.example.com, eyJpdiI6IlFFNjNNMk5YWkRSeDh3UnIvUFFkMWc9PSIsInZhbHVlIjoibVhFclZUQXRJQnozVU1IM3NzR1dSQT09IiwibWFjIjoiYzljYmZlZWNmM2Y0M2NjNmM0YmU5YzZjOWE1NDEwMDM0NTM4ZWNmZjliOWNhMTAyNTJjMGI5ZDU2M2Y4NzE0OCIsInRhZyI6IiJ9, 1, 1, 2026-04-07 20:41:45, 2026-04-07 20:41:45))
+
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Connection.php:838
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Connection.php:794
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Connection.php:573
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Connection.php:537
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Query\Processors\Processor.php:32
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Query\Builder.php:4051
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Builder.php:2235
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Model.php:1436
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Model.php:1401
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Model.php:1240
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Builder.php:1219
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Support\helpers.php:390
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Builder.php:1218
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Support\Traits\ForwardsCalls.php:23
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Model.php:2540
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Model.php:2556
+C:\laragon\www\fantaproject-v2\tests\Unit\Services\TeamFbrefAlignmentServiceTest.php:27
+
+Caused by
+PDOException: SQLSTATE[HY000]: General error: 1 no such table: proxy_services
+
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Connection.php:578
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Connection.php:827
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Connection.php:794
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Connection.php:573
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Connection.php:537
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Query\Processors\Processor.php:32
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Query\Builder.php:4051
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Builder.php:2235
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Model.php:1436
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Model.php:1401
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Model.php:1240
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Builder.php:1219
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Support\helpers.php:390
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Builder.php:1218
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Support\Traits\ForwardsCalls.php:23
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Model.php:2540
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Model.php:2556
+C:\laragon\www\fantaproject-v2\tests\Unit\Services\TeamFbrefAlignmentServiceTest.php:27
+
+--
+
+There was 1 failure:
+
+1) Tests\Unit\ZenRowsConnectionTest::test_zenrows_api_connection
+Eccezione durante la connessione: La richiesta a ZenRows è fallita con status: 401
+Failed asserting that false is true.
+
+C:\laragon\www\fantaproject-v2\tests\Unit\ZenRowsConnectionTest.php:50
+
+ERRORS!
+Tests: 7, Assertions: 13, Errors: 3, Failures: 1, PHPUnit Deprecations: 4.

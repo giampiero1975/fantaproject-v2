@@ -66,6 +66,17 @@ class SeasonHelper
     }
 
     /**
+     * Formatta un intervallo di stagioni (es. Dal 2021/22 al 2024/25)
+     */
+    public static function formatRange(int $startYear, int $endYear): string
+    {
+        if ($startYear === $endYear) {
+            return "Stagione " . self::formatYear($startYear);
+        }
+        return "Dal " . self::formatYear($startYear) . " al " . self::formatYear($endYear);
+    }
+
+    /**
      * Restituisce le stagioni che hanno dati collegati (team_season o standings).
      */
     public static function getPresentSeasons(): array

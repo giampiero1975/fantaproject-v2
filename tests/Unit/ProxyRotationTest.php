@@ -22,7 +22,9 @@ class ProxyRotationTest extends TestCase
             'current_usage' => 900, // 100 rimanenti
             'is_active' => true,
             'priority' => 1,
-            'js_cost' => 1,
+            'js_render' => false,
+            'base_url' => 'https://api.example.com',
+            'api_key' => 'dummy-key-1',
         ]);
 
         ProxyService::create([
@@ -32,7 +34,9 @@ class ProxyRotationTest extends TestCase
             'current_usage' => 100, // 900 rimanenti
             'is_active' => true,
             'priority' => 1,
-            'js_cost' => 1,
+            'js_render' => false,
+            'base_url' => 'https://api.example.com',
+            'api_key' => 'dummy-key-2',
         ]);
 
         $manager = app(ProxyManagerService::class);

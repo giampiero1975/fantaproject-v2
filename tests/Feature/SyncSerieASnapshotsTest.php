@@ -17,7 +17,14 @@ class SyncSerieASnapshotsTest extends TestCase
 
     public function test_it_syncs_teams_and_attaches_to_active_season()
     {
-        // 1. Arrange: creiamo la stagione 2025
+        // 1. Arrange: creiamo la lega e la stagione 2025
+        \App\Models\League::create([
+            'id' => 1,
+            'name' => 'Serie A',
+            'api_id' => 2019,
+            'country_code' => 'IT'
+        ]);
+
         $season = Season::create([
             'id' => 2395,
             'start_date' => '2025-08-24',

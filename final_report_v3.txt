@@ -1,0 +1,110 @@
+
+   WARN  Metadata found in doc-comment for method Tests\Unit\ProxyRotationTest::it_picks_the_proxy_with_most_remaining_credits(). Metadata in doc-comments is deprecated and will no longer be supported in PHPUnit 12. Update your test code to use attributes instead.
+
+   WARN  Metadata found in doc-comment for method Tests\Unit\Services\TeamFbrefAlignmentServiceTest::it_can_align_a_team_manually_with_provided_id_and_url(). Metadata in doc-comments is deprecated and will no longer be supported in PHPUnit 12. Update your test code to use attributes instead.
+
+   WARN  Metadata found in doc-comment for method Tests\Unit\Services\TeamFbrefAlignmentServiceTest::it_falls_back_to_direct_search_if_standings_are_empty(). Metadata in doc-comments is deprecated and will no longer be supported in PHPUnit 12. Update your test code to use attributes instead.
+
+   WARN  Metadata found in doc-comment for method Tests\Unit\Services\TeamFbrefAlignmentServiceTest::it_continues_alignment_even_if_standings_scrape_fails(). Metadata in doc-comments is deprecated and will no longer be supported in PHPUnit 12. Update your test code to use attributes instead.
+
+   WARN  Metadata found in doc-comment for method Tests\Feature\ProxyIntensiveTest::test_zenrows_with_spezia_2022(). Metadata in doc-comments is deprecated and will no longer be supported in PHPUnit 12. Update your test code to use attributes instead.
+
+   PASS  Tests\Unit\ExampleTest
+  Ô£ô that true is true   0.01s  
+
+   PASS  Tests\Unit\PlayerMatchTest
+  Ô£ô names are similarÔÇª  0.59s  
+
+   PASS  Tests\Unit\ProxyRotationTest
+  Ô£ô it picks the proxyÔÇª 0.57s  
+
+   FAIL  Tests\Unit\Services\TeamFbrefAlignmentServiceTest
+  Ô£ô it can align a teaÔÇª 0.17s  
+  Ô£ô it falls back to dÔÇª 0.09s  
+  Ô¿» it continues alignÔÇª 0.15s  
+
+­ƒöì TESTING ZENROWS URL: https://api.zenrows.com/v1/?api_key=test-key&url=https%3A%2F%2Ffbref.com%2Fen%2Fcomps%2F11%2F2024-2025%2F2024-2025-Serie-A-Stats&premium=true&render=true
+Ô£à STATUS CODE: 200
+­ƒôä BODY SNIPPET: <html><body>Mocked ZenRows Result</body></html>...
+
+   PASS  Tests\Unit\ZenRowsConnectionTest
+  Ô£ô zenrows api connecÔÇª 0.15s  
+
+   PASS  Tests\Feature\ExampleTest
+  Ô£ô the application reÔÇª 0.44s  
+
+   FAIL  Tests\Feature\FbrefScraperTest
+  Ô¿» scraping flow dispÔÇª 0.11s  
+
+[DEBUG] Testing Proxy: ZenRows (Target: https://fbref.com/en/squads/82110ea4/2022-2023/Spezia-Stats)
+[DEBUG] Generated Proxy URL: https://api.zenrows.com/v1?apikey=d9b8be2a7a1eecdcedeaccaa68305900c3e52bfe5&url=https%3A%2F%2Ffbref.com%2Fen%2Fsquads%2F82110ea4%2F2022-2023%2FSpezia-Stats&premium_proxy=true&proxy_country=it&js_render=true&wait_for=.stats_table
+[DEBUG] Response Status: 401
+[DEBUG] Duration: 0.96s
+
+   WARN  Tests\Feature\ProxyIntensiveTest
+  - zenrows with speziÔÇª 1.05s  
+
+   FAIL  Tests\Feature\SyncSerieASnapshotsTest
+  Ô¿» it syncs teams andÔÇª 0.09s  
+  Ô£ô it aborts if seasoÔÇª 0.08s  
+
+   PASS  Tests\Feature\TierSimulationTest
+  Ô£ô gold standard tierÔÇª 0.12s  
+  ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ  
+   FÔÇª  InvalidCountException   
+  Method scrapeSerieAStandings(<Any Arguments>) from Mockery_5_App_Services_FbrefScrapingService should be called
+ exactly 1 times but called 0 times.
+
+  at tests\Unit\Services\TeamFbrefAlignmentServiceTest.php:140
+    136Ôûò     }
+    137Ôûò 
+    138Ôûò     protected function tearDown(): void
+    139Ôûò     {
+  Ô×£ 140Ôûò         Mockery::close();
+    141Ôûò         parent::tearDown();
+    142Ôûò     }
+    143Ôûò }
+    144Ôûò
+
+  ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ  
+   FAILEDÔÇª    ErrorException   
+  include(C:\laragon\www\fantaproject-v2\vendor\composer/../../app/Filament/Pages/ScrapeFbrefTeams.php): Failed to open stream: No such file or directory
+
+  at vendor\livewire\livewire\src\Mechanisms\ComponentRegistry.php:52
+     48Ôûò         if (is_object($classOrName)) {
+     49Ôûò             $classOrName = get_class($classOrName);
+     50Ôûò         }
+     51Ôûò 
+  Ô×£  52Ôûò         if (class_exists($name = $classOrName)) {
+     53Ôûò             $name = $this->generateNameFromClass($classOrName);
+     54Ôûò         }
+     55Ôûò 
+     56Ôûò         $class = $this->generateClassFromName($name);
+
+  1   vendor\livewire\livewire\src\LivewireManager.php:63
+  2   vendor\livewire\livewire\src\Features\SupportTesting\Testable.php:80
+
+  ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ  
+   FAILEDÔÇª    QueryException   
+  SQLSTATE[23000]: Integrity constraint violation: 19 NOT NULL constraint failed: seasons.end_date (Connection: sqlite, Database: :memory:, SQL: insert into "seasons" ("start_date", "season_year", "is_current", "updated_at", "created_at") values (2025-08-24 00:00:00, 2025, 1, 2026-04-07 21:57:36, 2026-04-07 21:57:36))
+
+  at vendor\laravel\framework\src\Illuminate\Database\Connection.php:838
+    834Ôûò             $exceptionType = $this->isUniqueConstraintError($e)
+    835Ôûò                 ? UniqueConstraintViolationException::class
+    836Ôûò                 : QueryException::class;
+    837Ôûò 
+  Ô×£ 838Ôûò             throw new $exceptionType(
+    839Ôûò                 $this->getNameWithReadWriteType(),
+    840Ôûò                 $query,
+    841Ôûò                 $this->prepareBindings($bindings),
+    842Ôûò                 $e,
+
+  1   vendor\laravel\framework\src\Illuminate\Database\Connection.php:838
+
+  2   vendor\laravel\framework\src\Illuminate\Database\Connection.php:584
+      NunoMaduro\Collision\Exceptions\TestException::("SQLSTATE[23000]: Integrity constraint violation: 19 NOT NULL constraint failed: seasons.end_date")
+
+
+  Tests:    3 failed, 1 skipped, 9 passed (31 assertions)
+  Duration: 3.94s
+

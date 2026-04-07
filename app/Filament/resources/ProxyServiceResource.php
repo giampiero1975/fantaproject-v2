@@ -62,10 +62,6 @@ class ProxyServiceResource extends Resource
                             ->url()
                             ->maxLength(255)
                             ->placeholder('Es: http://api.scraperapi.com'),
-                        Forms\Components\TextInput::make('account_endpoint')
-                            ->url()
-                            ->maxLength(255)
-                            ->placeholder('Es: http://api.scraperapi.com/account'),
                     ])->columns(2),
 
                 Forms\Components\Section::make('Credenziali (Criptate)')
@@ -75,13 +71,7 @@ class ProxyServiceResource extends Resource
                             ->revealable()
                             ->required()
                             ->columnSpanFull(),
-                        Forms\Components\TextInput::make('username')
-                            ->password()
-                            ->revealable(),
-                        Forms\Components\TextInput::make('password')
-                            ->password()
-                            ->revealable(),
-                    ])->columns(2),
+                    ])->columns(1),
 
                 Forms\Components\Section::make('Configurazione & Limiti')
                     ->schema([

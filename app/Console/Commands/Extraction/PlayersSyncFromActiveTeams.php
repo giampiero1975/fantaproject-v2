@@ -48,13 +48,10 @@ class PlayersSyncFromActiveTeams extends Command
         $this->logger->info('🕐  Ora: ' . now()->format('Y-m-d H:i:s'));
 
         // ── Auto-season dal DB ───────────────────────────────────────────────
-        $season = (string) DB::table('teams')
-            ->where('serie_a_team', 1)
-            ->whereNotNull('api_football_data_id')
-            ->max('season_year');
+        $season = (string) \App\Models\Season::where('is_current', true)->value('season_year');
 
         if (!$season) {
-            $this->error('Impossibile rilevare season_year da DB. Verifica tabella teams.');
+            $this->error('Impossibile rilevare season_year da DB. Verifica che esista una Season is_current.');
             return Command::FAILURE;
         }
 
@@ -79,14 +76,10 @@ class PlayersSyncFromActiveTeams extends Command
         $this->logger->info("📋  ImportLog ID: {$importLog->id} creato (status: in_corso)");
 
         // ── Recupero squadre ─────────────────────────────────────────────────
-        $activeTeams = Team::where('serie_a_team', 1)
-            ->where('season_year', $season)
-            ->whereNotNull('api_football_data_id')
-            ->get();
+        $activeTeams = Team::whereNotNull('api_id')->get();
 
         if ($activeTeams->isEmpty()) {
-            $activeTeams = Team::where('serie_a_team', 1)->whereNotNull('api_football_data_id')->get();
-            $this->logger->warning("season_year={$season} vuoto: uso tutte le squadre serie_a=1.");
+            $this->logger->warning("Nessuna squadra con api_id trovata.");
         }
 
         if ($activeTeams->isEmpty()) {
@@ -139,9 +132,9 @@ class PlayersSyncFromActiveTeams extends Command
                 ]);
             }
 
-            $squadFromApi = $this->teamDataService->getSquad($team->api_football_data_id);
+            $squadFromApi = $this->teamDataService->getSquad($team->api_id);
             if (empty($squadFromApi)) {
-                $this->logger->warning("Nessuna rosa API: '{$team->name}' (api_id={$team->api_football_data_id}).");
+                $this->logger->warning("Nessuna rosa API: '{$team->name}' (api_id={$team->api_id}).");
                 $this->getOutput()->progressAdvance();
                 continue;
             }

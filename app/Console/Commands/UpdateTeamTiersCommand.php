@@ -11,19 +11,21 @@ class UpdateTeamTiersCommand extends Command
      * The name and signature of the console command.
      */
     protected $signature = 'teams:update-tiers
-                            {--lookback=5 : Numero di stagioni storiche da analizzare (default: 5)}';
+                            {--lookback= : Numero di stagioni storiche da analizzare (default: da config)}';
 
     /**
      * The console command description.
      */
-    protected $description = 'Ricalcola i Tier (1-5) per tutte le squadre di Serie A usando i parametri Gold Standard (Points Mode, CF=0.95, Divisore=17).';
+    protected $description = 'Ricalcola i Tier (1-5) per tutte le squadre di Serie A usando i parametri Gold Standard.';
 
     /**
      * Execute the console command.
      */
     public function handle(TeamDataService $service): int
     {
-        $lookback = (int) $this->option('lookback');
+        $lookback = $this->option('lookback') 
+            ? (int) $this->option('lookback') 
+            : (int) config('projection_settings.tier_calculation.lookback_seasons', 4);
 
         $this->info('');
         $this->info('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');

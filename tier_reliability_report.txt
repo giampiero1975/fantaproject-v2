@@ -1,0 +1,54 @@
+TEAM                      | TIER 25/26   | POS 24/25  | AVG HIST
+----------------------------------------------------------------------
+AC Milan                  |      1       |     8      | 6.4912
+Atalanta BC               |      1       |     3      | 6.3467
+FC Internazionale Milano  |      1       |     2      | 4.386
+Juventus FC               |      1       |     4      | 6.4809
+SSC Napoli                |      1       |     1      | 5.6863
+ACF Fiorentina            |      2       |     6      | 7.5026
+AS Roma                   |      2       |     5      | 6.935
+Bologna FC 1909           |      2       |     9      | 7.5955
+SS Lazio                  |      2       |     7      | 7.0691
+Genoa CFC                 |      3       |     13     | 10.033
+Udinese Calcio            |      3       |     12     | 10.3302
+US Sassuolo Calcio        |      3       |     1      | 9.7497
+Torino FC                 |      3       |     11     | 9.4943
+Hellas Verona FC          |      4       |     14     | 12.1465
+US Lecce                  |      4       |     17     | 12.3673
+Parma Calcio 1913         |      4       |     16     | 12.1198
+Como 1907                 |      4       |     10     | 11.8568
+Cagliari                  |      5       |     15     | 12.6735
+Empoli FC                 |      5       |     18     | 13.2068
+US Salernitana 1919       |      5       |     16     | 16.2214
+Frosinone Calcio          |      5       |     15     | 14.9722
+AC Monza                  |      5       |     20     | 13.6825
+Venezia FC                |      5       |     19     | 13.352
+US Cremonese              |      5       |     4      | 13.0485
+AC Pisa 1909              |      5       |     2      | 13.1816
+Sampdoria                 |      5       |     17     | 16.7373
+Spezia Calcio             |      5       |     3      | 14.0632
+Brescia                   |      5       |     18     | 17.8384
+Ascoli                    |      5       |    N/A     | 23.3384
+Benevento                 |      5       |    N/A     | 26.8216
+Perugia                   |      5       |    N/A     | 26.7666
+Ternana                   |      5       |    N/A     | 23.54
+Cittadella                |      5       |     19     | 18.3516
+US Reggina                |      5       |    N/A     | 26.3634
+SPAL                      |      5       |    N/A     | 27.0966
+Cosenza                   |      5       |     20     | 19.855
+Vicenza Virtus            |      5       |    N/A     | 28.6366
+US Alessandria Calcio 1912 |      5       |    N/A     | 28.6366
+Crotone                   |      5       |    N/A     | 28.7834
+Pordenone Calcio          |      5       |    N/A     | 28.93
+Bari                      |      5       |     9      | 17.71
+FC S├╝dtirol              |      5       |     10     | 17.7834
+Palermo                   |      5       |     8      | 16.6834
+Modena                    |      5       |     11     | 18.2784
+Juve Stabia               |      5       |     5      | 22.2016
+Catanzaro                 |      5       |     6      | 18.0584
+Cesena                    |      5       |     7      | 22.4584
+Carrarese                 |      5       |     12     | 23.485
+Reggiana                  |      5       |     13     | 20.1666
+Mantova                   |      5       |     14     | 23.6134
+FeralpiSal├▓              |      5       |    N/A     | 26.84
+Calcio Lecco 1912         |      5       |    N/A     | 27.3534

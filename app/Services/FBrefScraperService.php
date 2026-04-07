@@ -140,7 +140,6 @@ class FBrefScraperService
                 'short_name' => $name, // Fondamentale per i futuri matching
                 'fbref_id' => $fbrefId,
                 'fbref_url' => $fbrefUrl,
-                'serie_a_team' => false,
             ]);
             Log::info("FBrefScraper: Creato nuovo team '{$name}' (ID FBref: {$fbrefId})");
         }

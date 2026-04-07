@@ -38,26 +38,33 @@ class FootballDataApiService
             $teams = $response->json()['teams'] ?? [];
 
             foreach ($teams as $teamData) {
-                // serie_a_team = 1 solo per la stagione corrente (2025)
+                // is_active = true solo per la stagione corrente (es. 2025)
                 $isSerieAActive = ($season === 2025);
 
                 $team = Team::updateOrCreate(
-                    ['api_football_data_id' => $teamData['id']],
+                    ['api_id' => $teamData['id']],
                     [
                         'name' => $teamData['name'],
                         'short_name' => $teamData['shortName'],
                         'tla' => $teamData['tla'],
-                        'crest_url' => $teamData['crest'],
-                        'league_code' => $leagueCode,
-                        'season_year' => $season,
+                        'logo_url' => $teamData['crest'],
                     ]
                 );
 
-                // Aggiorniamo il flag solo se ? la stagione 2025, 
-                // oppure se il team non lo ha già a true (per evitare di sovrascrivere teams attivi)
-                if ($isSerieAActive) {
-                    $team->update(['serie_a_team' => true]);
-                }
+                // Setup the season & league relations
+                $seasonModel = \App\Models\Season::firstOrCreate(['season_year' => $season]);
+                $leagueModel = \App\Models\League::firstOrCreate(['country_code' => 'ITA'], ['name' => 'Serie A']);
+
+                \App\Models\TeamSeason::updateOrCreate(
+                    [
+                        'team_id' => $team->id,
+                        'season_id' => $seasonModel->id,
+                        'league_id' => $leagueModel->id,
+                    ],
+                    [
+                        'is_active' => $isSerieAActive
+                    ]
+                );
             }
             
             // Wait to avoid rate limits (10 req/min for free tier)

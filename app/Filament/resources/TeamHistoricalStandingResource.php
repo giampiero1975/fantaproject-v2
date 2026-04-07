@@ -37,6 +37,16 @@ class TeamHistoricalStandingResource extends Resource
         ->columns([
             Tables\Columns\TextColumn::make('season_year')->label('Anno')->sortable(),
             Tables\Columns\TextColumn::make('team.name')->label('Squadra')->searchable()->sortable(),
+            Tables\Columns\TextColumn::make('league_name')
+                ->label('Serie')
+                ->badge()
+                ->sortable()
+                ->searchable()
+                ->color(fn (?string $state): string => match($state) {
+                    'Serie A' => 'success',
+                    'Serie B' => 'warning',
+                    default   => 'gray',
+                }),
             Tables\Columns\TextColumn::make('position')->label('Pos.')->sortable(),
             Tables\Columns\TextColumn::make('points')->label('Punti')->sortable(),
             Tables\Columns\TextColumn::make('data_source')
@@ -50,8 +60,14 @@ class TeamHistoricalStandingResource extends Resource
         ])
         ->filters([
             Tables\Filters\SelectFilter::make('season_year')
-            ->label('Stagione')
-            ->options(TeamHistoricalStanding::query()->distinct()->pluck('season_year', 'season_year')->toArray()),
+                ->label('Stagione')
+                ->options(TeamHistoricalStanding::query()->distinct()->pluck('season_year', 'season_year')->toArray()),
+            Tables\Filters\SelectFilter::make('league_name')
+                ->label('Serie')
+                ->options([
+                    'Serie A' => 'Serie A',
+                    'Serie B' => 'Serie B',
+                ]),
         ]);
     }
     

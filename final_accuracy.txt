@@ -1,0 +1,58 @@
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🧬  TIER EVOLUTION — 36 combinazioni (Trend×Points×Roster)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Base: CF=0.95 | LB=4 | Div=17 | modT1T2=1 | modT4T5=1.1
+  Squadre verità: 20
+
+  📊 Baseline (nessuna feature evoluta): MAE=4.25 | Affinity=55%
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🏆  BEST CONFIG EVOLUTA
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Trend Penalty       : 1x (off)
+  Points Mode         : SÌ (pts/giocate)
+  Roster Proxy        : NO
+  MAE                 : 1.25 (baseline: 4.25)
+  Affinity |Δ|≤3      : 85%
+  Affinity |Δ|≤2      : 80%
+  Δ rispetto baseline : -3
+
+📍 Squadre focus (Best Config Evoluta):
+  Hellas Verona FC              Reale:14  Proj:16  Δ:+2
+  Udinese Calcio                Reale:12  Proj:13  Δ:+1
+  Como 1907                     Reale:10  Proj:14  Δ:+4
+  Parma Calcio 1913             Reale:16  Proj:15  Δ:-1
+  Genoa CFC                     Reale:13  Proj:12  Δ:-1
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+❓ RISPOSTE ALLE DOMANDE SPECIFICHE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  ✅ Verona Δ≤2: RAGGIUNTO con Trend=1x | Points=SÌ | Roster=NO → Δ=2 (Real:14 Proj:16)
+  ✅ Udinese Δ≤3: RAGGIUNTO con Trend=1x | Points=SÌ | Roster=NO → Δ=1 (Real:12 Proj:13)
+  ✅ Affinity >88%: RAGGIUNTO al 95% con Trend=1.05x | Points=SÌ | Roster=NO
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📈 IMPATTO DEL TREND PENALTY (Points=OFF, Roster=OFF cheat sheet)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Penalty   MAE       Affinity≤3  Affinity≤2  Verona Δ   Udinese Δ
+  1x        4.25      55%         45%         9           9         
+  1.05x     4.4       55%         45%         9           9         
+  1.1x      4.45      55%         45%         9           9         
+  1.15x     4.6       55%         45%         9           9         
+  1.2x      4.6       55%         50%         9           9         
+  1.25x     4.6       55%         50%         9           9         
+  1.3x      4.65      55%         50%         9           9         
+  1.35x     4.8       55%         50%         9           9         
+  1.4x      4.85      55%         50%         9           9         
+
+✅ Risultati salvati in: C:\laragon\www\fantaproject-v2\storage\logs/Tiers/evolution_results.json
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+
+   PASS  Tests\Feature\TierEvolutionTest
+  ✓ evolve tier with c… 0.68s  
+
+  Tests:    1 passed (2 assertions)
+  Duration: 0.95s
+

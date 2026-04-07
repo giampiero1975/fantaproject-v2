@@ -1,0 +1,193 @@
+PHPUnit 11.5.48 by Sebastian Bergmann and contributors.
+
+Runtime:       PHP 8.3.4
+Configuration: C:\laragon\www\fantaproject-v2\phpunit.xml
+
+....FFE.EEEE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🧬  TIER EVOLUTION — 36 combinazioni (Trend×Points×Roster)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Base: CF=0.95 | LB=4 | Div=17 | modT1T2=1 | modT4T5=1.1
+  Squadre verità: 20
+
+  📊 Baseline (nessuna feature evoluta): MAE=4.25 | Affinity=55%
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🏆  BEST CONFIG EVOLUTA
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Trend Penalty       : 1x (off)
+  Points Mode         : SÌ (pts/giocate)
+  Roster Proxy        : NO
+  MAE                 : 1.25 (baseline: 4.25)
+  Affinity |Δ|≤3      : 85%
+  Affinity |Δ|≤2      : 80%
+  Δ rispetto baseline : -3
+
+📍 Squadre focus (Best Config Evoluta):
+  Hellas Verona FC              Reale:14  Proj:16  Δ:+2
+  Udinese Calcio                Reale:12  Proj:13  Δ:+1
+  Como 1907                     Reale:10  Proj:14  Δ:+4
+  Parma Calcio 1913             Reale:16  Proj:15  Δ:-1
+  Genoa CFC                     Reale:13  Proj:12  Δ:-1
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+❓ RISPOSTE ALLE DOMANDE SPECIFICHE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  ✅ Verona Δ≤2: RAGGIUNTO con Trend=1x | Points=SÌ | Roster=NO → Δ=2 (Real:14 Proj:16)
+  ✅ Udinese Δ≤3: RAGGIUNTO con Trend=1x | Points=SÌ | Roster=NO → Δ=1 (Real:12 Proj:13)
+  ✅ Affinity >88%: RAGGIUNTO al 95% con Trend=1.05x | Points=SÌ | Roster=NO
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📈 IMPATTO DEL TREND PENALTY (Points=OFF, Roster=OFF cheat sheet)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Penalty   MAE       Affinity≤3  Affinity≤2  Verona Δ   Udinese Δ
+  1x        4.25      55%         45%         9           9         
+  1.05x     4.4       55%         45%         9           9         
+  1.1x      4.45      55%         45%         9           9         
+  1.15x     4.6       55%         45%         9           9         
+  1.2x      4.6       55%         50%         9           9         
+  1.25x     4.6       55%         50%         9           9         
+  1.3x      4.65      55%         50%         9           9         
+  1.35x     4.8       55%         50%         9           9         
+  1.4x      4.85      55%         50%         9           9         
+
+✅ Risultati salvati in: C:\laragon\www\fantaproject-v2\storage\logs/Tiers/evolution_results.json
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🔬  TIER SIMULATION — 1200 combinazioni da testare
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Squadre nel dataset di verità: 20
+
+  [100/1200] Best MAE so far: 2.1765
+  [200/1200] Best MAE so far: 2.1765
+  [300/1200] Best MAE so far: 2.1765
+  [400/1200] Best MAE so far: 2.1765
+  [500/1200] Best MAE so far: 2.0588
+  [600/1200] Best MAE so far: 2.0588
+  [700/1200] Best MAE so far: 2.0588
+  [800/1200] Best MAE so far: 2.0588
+  [900/1200] Best MAE so far: 2.0588
+  [1000/1200] Best MAE so far: 2.0588
+  [1100/1200] Best MAE so far: 2.0588
+  [1200/1200] Best MAE so far: 1.9412
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🏆  BEST CONFIG TROVATA
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Conversion Factor (B) : 0.95
+  Lookback              : 5
+  Fixed Divisor         : 17
+  Modulatore T1-2 (Off) : 1
+  Modulatore T4-5 (Def) : 1.1
+  MAE (classifica)      : 1.9412
+  Affinity (|Δ|≤3)      : 82.4%
+
+📍 Dettaglio squadre focus:
+  Como 1907                     Real: 10  Proiettato: 13  Delta: +3
+  Parma Calcio 1913             Real: 16  Proiettato: 15  Delta: -1
+  Hellas Verona FC              Real: 14  Proiettato: 18  Delta: +4
+  Genoa CFC                     Real: 13  Proiettato: 16  Delta: +3
+
+✅ Risultati salvati in: C:\laragon\www\fantaproject-v2\storage\logs/Tiers/optimal_config_results.json
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+.                                                    14 / 14 (100%)
+
+Time: 00:03.440, Memory: 74.00 MB
+
+There were 5 errors:
+
+1) Tests\Unit\ZenRowsConnectionTest::test_zenrows_api_connection
+PDOException: There is already an active transaction
+
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\SQLiteConnection.php:38
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Concerns\ManagesTransactions.php:154
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Concerns\ManagesTransactions.php:130
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Foundation\Testing\RefreshDatabase.php:147
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Foundation\Testing\RefreshDatabase.php:93
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Foundation\Testing\RefreshDatabase.php:25
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Foundation\Testing\Concerns\InteractsWithTestCaseLifecycle.php:217
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Foundation\Testing\Concerns\InteractsWithTestCaseLifecycle.php:101
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Foundation\Testing\TestCase.php:63
+
+2) Tests\Feature\FbrefScraperTest::test_scraping_flow_dispatches_event_and_saves_data
+PDOException: There is already an active transaction
+
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\SQLiteConnection.php:38
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Concerns\ManagesTransactions.php:154
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Concerns\ManagesTransactions.php:130
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Foundation\Testing\RefreshDatabase.php:147
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Foundation\Testing\RefreshDatabase.php:93
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Foundation\Testing\RefreshDatabase.php:25
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Foundation\Testing\Concerns\InteractsWithTestCaseLifecycle.php:217
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Foundation\Testing\Concerns\InteractsWithTestCaseLifecycle.php:101
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Foundation\Testing\TestCase.php:63
+
+3) Tests\Feature\ProxyIntensiveTest::test_zenrows_with_spezia_2022
+PDOException: There is already an active transaction
+
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\SQLiteConnection.php:38
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Concerns\ManagesTransactions.php:154
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Concerns\ManagesTransactions.php:130
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Foundation\Testing\RefreshDatabase.php:147
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Foundation\Testing\RefreshDatabase.php:93
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Foundation\Testing\RefreshDatabase.php:25
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Foundation\Testing\Concerns\InteractsWithTestCaseLifecycle.php:217
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Foundation\Testing\Concerns\InteractsWithTestCaseLifecycle.php:101
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Foundation\Testing\TestCase.php:63
+
+4) Tests\Feature\SyncSerieASnapshotsTest::test_it_syncs_teams_and_attaches_to_active_season
+PDOException: There is already an active transaction
+
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\SQLiteConnection.php:38
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Concerns\ManagesTransactions.php:154
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Concerns\ManagesTransactions.php:130
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Foundation\Testing\RefreshDatabase.php:147
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Foundation\Testing\RefreshDatabase.php:93
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Foundation\Testing\RefreshDatabase.php:25
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Foundation\Testing\Concerns\InteractsWithTestCaseLifecycle.php:217
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Foundation\Testing\Concerns\InteractsWithTestCaseLifecycle.php:101
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Foundation\Testing\TestCase.php:63
+
+5) Tests\Feature\SyncSerieASnapshotsTest::test_it_aborts_if_season_missing
+PDOException: There is already an active transaction
+
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\SQLiteConnection.php:38
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Concerns\ManagesTransactions.php:154
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Concerns\ManagesTransactions.php:130
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Foundation\Testing\RefreshDatabase.php:147
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Foundation\Testing\RefreshDatabase.php:93
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Foundation\Testing\RefreshDatabase.php:25
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Foundation\Testing\Concerns\InteractsWithTestCaseLifecycle.php:217
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Foundation\Testing\Concerns\InteractsWithTestCaseLifecycle.php:101
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Foundation\Testing\TestCase.php:63
+
+--
+
+There were 2 failures:
+
+1) Tests\Unit\Services\TeamFbrefAlignmentServiceTest::it_falls_back_to_direct_search_if_standings_are_empty
+Failed asserting that false is true.
+
+C:\laragon\www\fantaproject-v2\tests\Unit\Services\TeamFbrefAlignmentServiceTest.php:79
+
+2) Tests\Unit\Services\TeamFbrefAlignmentServiceTest::it_continues_alignment_even_if_standings_scrape_fails
+Failed asserting that false is true.
+
+C:\laragon\www\fantaproject-v2\tests\Unit\Services\TeamFbrefAlignmentServiceTest.php:115
+
+--
+
+There was 1 risky test:
+
+1) Tests\Unit\Services\TeamFbrefAlignmentServiceTest::it_continues_alignment_even_if_standings_scrape_fails
+* Test code or tested code did not remove its own error handlers
+
+* Test code or tested code did not remove its own exception handlers
+
+C:\laragon\www\fantaproject-v2\tests\Unit\Services\TeamFbrefAlignmentServiceTest.php:84
+
+ERRORS!
+Tests: 14, Assertions: 20, Errors: 5, Failures: 2, PHPUnit Deprecations: 5, Risky: 1.

@@ -1,0 +1,46 @@
+PHPUnit 11.5.48 by Sebastian Bergmann and contributors.
+
+Runtime:       PHP 8.3.4
+Configuration: C:\laragon\www\fantaproject-v2\phpunit.xml
+
+.....FE                                                             7 / 7 (100%)
+
+Time: 00:01.954, Memory: 56.00 MB
+
+There was 1 error:
+
+1) Tests\Unit\ZenRowsConnectionTest::test_zenrows_api_connection
+PDOException: There is already an active transaction
+
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\SQLiteConnection.php:38
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Concerns\ManagesTransactions.php:154
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Concerns\ManagesTransactions.php:130
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Foundation\Testing\RefreshDatabase.php:147
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Foundation\Testing\RefreshDatabase.php:93
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Foundation\Testing\RefreshDatabase.php:25
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Foundation\Testing\Concerns\InteractsWithTestCaseLifecycle.php:217
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Foundation\Testing\Concerns\InteractsWithTestCaseLifecycle.php:101
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Foundation\Testing\TestCase.php:63
+
+--
+
+There was 1 failure:
+
+1) Tests\Unit\Services\TeamFbrefAlignmentServiceTest::it_continues_alignment_even_if_standings_scrape_fails
+Failed asserting that false is true.
+
+C:\laragon\www\fantaproject-v2\tests\Unit\Services\TeamFbrefAlignmentServiceTest.php:128
+
+--
+
+There was 1 risky test:
+
+1) Tests\Unit\Services\TeamFbrefAlignmentServiceTest::it_continues_alignment_even_if_standings_scrape_fails
+* Test code or tested code did not remove its own error handlers
+
+* Test code or tested code did not remove its own exception handlers
+
+C:\laragon\www\fantaproject-v2\tests\Unit\Services\TeamFbrefAlignmentServiceTest.php:98
+
+ERRORS!
+Tests: 7, Assertions: 16, Errors: 1, Failures: 1, PHPUnit Deprecations: 4, Risky: 1.

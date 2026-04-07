@@ -10,7 +10,7 @@ class ScraperApiProvider implements ProxyProviderInterface
 {
     public function checkBalance(ProxyService $proxy): array
     {
-        $response = Http::timeout(10)->get($proxy->account_endpoint ?: 'http://api.scraperapi.com/account', [
+        $response = Http::timeout(10)->get('http://api.scraperapi.com/account', [
             'api_key' => $proxy->api_key
         ]);
 

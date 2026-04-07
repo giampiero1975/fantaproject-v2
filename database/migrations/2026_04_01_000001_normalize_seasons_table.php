@@ -31,8 +31,10 @@ return new class extends Migration
             $mapping[$season->id] = $nextId++;
         }
 
-        // 4. Disabilitazione temporanea dei vincoli per lo swap degli ID
-        DB::statement('SET FOREIGN_KEY_CHECKS=0;');
+        // 4. Disabilitazione temporanea dei vincoli per lo swap degli ID (solo MySQL)
+        if (DB::getDriverName() === 'mysql') {
+            DB::statement('SET FOREIGN_KEY_CHECKS=0;');
+        }
 
         // Aggiornamento tabella pivot team_season
         foreach ($mapping as $oldId => $newId) {
@@ -44,11 +46,12 @@ return new class extends Migration
             DB::table('seasons')->where('api_id', $oldId)->update(['id' => $newId]);
         }
 
-        // 5. Trasformazione della colonna ID in AUTO_INCREMENT
-        // Nota: Assumiamo MySQL come database (Laragon standard)
-        DB::statement('ALTER TABLE seasons MODIFY COLUMN id BIGINT UNSIGNED AUTO_INCREMENT;');
-
-        DB::statement('SET FOREIGN_KEY_CHECKS=1;');
+        // 5. Trasformazione della colonna ID in AUTO_INCREMENT (solo MySQL)
+        // Nota: In SQLite questo non è necessario o viene gestito diversamente nelle tabelle in-memory.
+        if (DB::getDriverName() === 'mysql') {
+            DB::statement('ALTER TABLE seasons MODIFY COLUMN id BIGINT UNSIGNED AUTO_INCREMENT;');
+            DB::statement('SET FOREIGN_KEY_CHECKS=1;');
+        }
     }
 
     /**
@@ -56,10 +59,14 @@ return new class extends Migration
      */
     public function down(): void
     {
-        DB::statement('SET FOREIGN_KEY_CHECKS=0;');
+        if (DB::getDriverName() === 'mysql') {
+            DB::statement('SET FOREIGN_KEY_CHECKS=0;');
+        }
 
         // Rimuoviamo l'auto-increment prima di droppare le colonne
-        DB::statement('ALTER TABLE seasons MODIFY COLUMN id BIGINT UNSIGNED;');
+        if (DB::getDriverName() === 'mysql') {
+            DB::statement('ALTER TABLE seasons MODIFY COLUMN id BIGINT UNSIGNED;');
+        }
 
         // Ripristino degli ID originali da api_id (se possibile)
         $seasons = DB::table('seasons')->whereNotNull('api_id')->get();
@@ -73,6 +80,8 @@ return new class extends Migration
             $table->dropColumn(['api_id', 'fbref_id']);
         });
 
-        DB::statement('SET FOREIGN_KEY_CHECKS=1;');
+        if (DB::getDriverName() === 'mysql') {
+            DB::statement('SET FOREIGN_KEY_CHECKS=1;');
+        }
     }
 };

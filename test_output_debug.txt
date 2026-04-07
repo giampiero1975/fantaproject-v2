@@ -1,0 +1,20 @@
+PHPUnit 11.5.48 by Sebastian Bergmann and contributors.
+
+Runtime:       PHP 8.3.4
+Configuration: C:\laragon\www\fantaproject-v2\phpunit.xml
+
+F.                                                                  2 / 2 (100%)
+
+Time: 00:01.313, Memory: 54.00 MB
+
+There was 1 failure:
+
+1) Tests\Feature\SyncSerieASnapshotsTest::test_it_syncs_teams_and_attaches_to_active_season
+Failed asserting that table [teams] matches expected entries count of 2. Entries found: 0.
+.
+
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Foundation\Testing\Concerns\InteractsWithDatabase.php:94
+C:\laragon\www\fantaproject-v2\tests\Feature\SyncSerieASnapshotsTest.php:55
+
+FAILURES!
+Tests: 2, Assertions: 3, Failures: 1.

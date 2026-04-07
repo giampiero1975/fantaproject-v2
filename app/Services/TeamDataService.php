@@ -210,7 +210,7 @@ class TeamDataService
      * @param int $lookbackYears Numero di stagioni passate da analizzare (default: 5)
      * @return array ['updated' => int, 'skipped' => int]
      */
-    public function updateTeamTiers(int $lookbackYears = 5): array
+    public function updateTeamTiers(?int $lookbackYears = null): array
     {
         $logPath = storage_path('logs/Tiers/TeamsUpdateTiers.log');
         if (!file_exists(dirname($logPath))) {
@@ -218,14 +218,25 @@ class TeamDataService
         }
         $logger = Log::build(['driver' => 'single', 'path' => $logPath]);
 
-        // ── Carica parametri dalla config (con fallback ai valori Gold Standard) ──
+        // ── Carica parametri dalla config ──
         $cfg          = config('projection_settings.tier_calculation', []);
         $usePointsMode = $cfg['use_points_mode']            ?? true;
         $cf            = (float) ($cfg['serie_b_conversion_factor'] ?? 0.95);
-        $fixedDivisor  = (int)   ($cfg['fixed_divisor']             ?? 17);
+        $fixedDivisor  = (int)   ($cfg['fixed_divisor']             ?? 17); // CRITICO: 17
+        
+        // 1. Lettura Lookback dinamica (se non passato come argomento)
+        if (!$lookbackYears) {
+            $lookbackYears = (int) ($cfg['lookback_seasons'] ?? 4);
+        }
+        
         $modOffensive  = (float) ($cfg['mod_tier_offensive']        ?? 1.00);
         $modDefensive  = (float) ($cfg['mod_tier_defensive']        ?? 1.10);
-        $thresholds    = $cfg['tier_thresholds'] ?? [1 => 5.5, 2 => 9.5, 3 => 13.5, 4 => 17.5];
+        $thresholds    = $cfg['tier_thresholds'] ?? [
+            1 => 6.5,
+            2 => 8.5,
+            3 => 10.5,
+            4 => 12.5,
+        ];
 
         // Esclude la stagione in corso
         $currentYear = \App\Helpers\SeasonHelper::getCurrentSeason();
@@ -235,18 +246,21 @@ class TeamDataService
             $seasons[] = $lastConcluded - $i;
         }
 
-        // ── Pesi temporali ────────────────────────────────────────────────────
-        if ($lookbackYears === 5) {
-            $weights = [7, 4, 2, 1, 1]; // scala accelerata ottimizzata
-        } else {
-            $weights = array_reverse(range(1, $lookbackYears));
+        // 2. Pesi Dinamici (set Gold Standard ritagliato)
+        $baseWeights = $cfg['season_decay_weights'] ?? [7, 4, 2, 1];
+        
+        // Se il lookback richiesto è più lungo dei pesi definiti, estendiamo con pesi = 1
+        $weights = array_slice($baseWeights, 0, $lookbackYears);
+        if ($lookbackYears > count($baseWeights)) {
+            $diff = $lookbackYears - count($baseWeights);
+            $weights = array_merge($weights, array_fill(0, $diff, 1));
         }
 
         $logger->info("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-        $logger->info("🏆  GOLD STANDARD TIER CALCULATION");
+        $logger->info("🏆  GOLD STANDARD CALCULATION (RESTORED)");
         $logger->info("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
         $logger->info("⚙️  Lookback    : {$lookbackYears} stagioni → " . implode(', ', $seasons));
-        $logger->info("⚙️  Pesi        : " . implode(', ', $weights) . " | Divisore fisso: {$fixedDivisor}");
+        $logger->info("⚙️  Pesi usati  : " . implode(', ', $weights) . " | Divisore Fisso: {$fixedDivisor}");
         $logger->info("⚙️  Modalità    : " . ($usePointsMode ? 'PUNTI NORMALIZZATI ✅' : 'POSIZIONE (legacy)'));
         $logger->info("⚙️  CF Serie B  : {$cf} | ModT1-2: {$modOffensive}x | ModT4-5: {$modDefensive}x");
         $logger->info(str_repeat('─', 70));
@@ -266,52 +280,53 @@ class TeamDataService
                     ->where('season_year', $season)
                     ->first();
 
-                if (!$standing || $standing->position <= 0) {
-                    $seasonDetails[] = "{$season}→n/d";
-                    // Stagione mancante: contribuisce 0 al numeratore ma il denominatore
-                    // resta fisso a $fixedDivisor → penalizza correttamente
+                $w = $weights[$idx];
+
+                if (!$standing) {
+                    // Record realmente assente (Serie C o fallimento) -> Penale d'ufficio
+                    $baseScore = 20.0;
+                    $serieBMultiplier = $cf * ($fixedDivisor / 10.0);
+                    $baseScore *= $serieBMultiplier; // Manteniamo la penale aggravata per chi è "fuori dai radar"
+
+                    $contribution = $baseScore * $w;
+                    $weightedScoreSum += $contribution;
+                    
+                    $seasonDetails[] = sprintf("%d→MANCANTE[score%.2f×peso%d=%.2f]", $season, $baseScore, $w, $contribution);
                     continue;
                 }
 
-                $w        = $weights[$idx];
-                $isSerieA = ($standing->league_name === 'Serie A');
+                $isSerieA = (isset($standing->league_name) && $standing->league_name === 'Serie A');
                 $leagueLabel = $isSerieA ? 'A' : 'B';
 
-                // ── Calcolo score base ─────────────────────────────────────────
-                $hasPtsData   = $usePointsMode
-                    && $standing->points > 0
-                    && $standing->played_games > 0;
+                // Recuperiamo i dati delle partite e dei punti in modo flessibile
+                $pts = $standing->points ?? 0;
+                $played = $standing->played_games ?? $standing->played ?? 0;
+                $totalPossiblePts = $played * 3;
 
-                if ($hasPtsData) {
-                    // POINTS MODE: normalizza i punti su scala 0-20
-                    // 0 = squadra perfetta (tutti i punti), 20 = squadra nulla (0 punti)
-                    $ptsRatio  = min(1.0, $standing->points / ($standing->played_games * 3));
-                    $baseScore = (1.0 - $ptsRatio) * 20.0;
-                    $modeLabel = "pts({$standing->points}/{$standing->played_games}×3)";
+                if ($played > 0) {
+                    // Formula richiesta: (1 - (punti_fatti / punti_totali)) * 20
+                    $baseScore = (1.0 - (min(1.0, $pts / $totalPossiblePts))) * 20.0;
+                    $modeLabel = "pts({$pts}/{$played})";
                 } else {
-                    // FALLBACK: posizione raw (legacy)
-                    $baseScore = (float) $standing->position;
+                    // Fallback estremo se mancano i dati punti ma c'è il record
+                    $baseScore = (float) ($standing->position ?? 20.0);
                     $modeLabel = "pos";
                 }
 
-                // ── Conversione Serie B ────────────────────────────────────────
-                // Moltiplicatore CF×(div/10) sostituisce definitivamente il +10 additivo.
-                // CF=0.95, div=17 → moltiplicatore = 1.615
-                // Questo scala il range 0-20 di Serie B a 0-32.3, riflettendo la distanza
-                // dal livello Serie A senza andare a regime su valori assoluti.
+                // Conversione Serie B: SE la lega è 'B', applica il moltiplicatore (CF * 1.7)
+                // Usiamo il CF configurato (default 0.95) e il fattore 1.7 richiesto
                 if (!$isSerieA) {
-                    $serieBMultiplier = $cf * ($fixedDivisor / 10.0);
-                    $baseScore       *= $serieBMultiplier;
-                    $modeLabel       .= "×CF({$serieBMultiplier})";
+                    $convFactor = $cf * 1.7;
+                    $baseScore *= $convFactor;
+                    $modeLabel .= "×CF_B({$convFactor})";
                 }
 
-                $contribution      = $baseScore * $w;
+                $contribution = $baseScore * $w;
                 $weightedScoreSum += $contribution;
 
                 $seasonDetails[] = sprintf(
                     "%d→%s[%s]→score%.2f×peso%d=%.2f",
-                    $season, ($hasPtsData ? "pts" : "pos{$standing->position}"),
-                    $leagueLabel, $baseScore, $w, $contribution
+                    $season, $modeLabel, $leagueLabel, $baseScore, $w, $contribution
                 );
             }
 
@@ -324,6 +339,31 @@ class TeamDataService
                 $logger->warning("⚠️  {$team->name}: dati insufficienti (avg=0). Tier invariato.");
                 $skipped++;
                 continue;
+            }
+
+            // ── FEATURE: Trend Penalty (Decadenza) ────────────────────────────
+            // Se le ultime 3 stagioni in Serie A mostrano un peggioramento costante,
+            // applichiamo il malus definito in config.
+            $trendMalus = 1.00;
+            $posHistory = [];
+            foreach ($seasons as $s) {
+                $st = DB::table('team_historical_standings')
+                    ->where('team_id', $team->id)
+                    ->where('season_year', $s)
+                    ->where('league_name', 'Serie A')
+                    ->first();
+                if ($st && $st->position > 0) {
+                    $posHistory[] = $st->position;
+                }
+            }
+
+            $trendPenaltyCfg = (float) ($cfg['trend_penalty'] ?? 1.05);
+            if ($trendPenaltyCfg > 1.00 && count($posHistory) >= 3) {
+                // posHistory[0] è la più recente (es. 2024), posHistory[1] la precedente (2023)...
+                if ($posHistory[0] > $posHistory[1] && $posHistory[1] > $posHistory[2]) {
+                    $trendMalus = $trendPenaltyCfg;
+                    $avgPosition = round($avgPosition * $trendMalus, 4);
+                }
             }
 
             // ── Modulatori pre-tier ────────────────────────────────────────────
@@ -339,6 +379,11 @@ class TeamDataService
             } else {
                 $avgPositionMod = $avgPosition;
                 $modNote = "×1.00 (T3 neutro)";
+            }
+
+            // Se è stato applicato un malus di trend, lo segnaliamo nel log
+            if ($trendMalus > 1.00) {
+                $modNote .= " + TREND MALUS {$trendMalus}x ⚠️";
             }
 
             // Tier finale con posizione modulata

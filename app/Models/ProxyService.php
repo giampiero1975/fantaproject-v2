@@ -10,10 +10,7 @@ class ProxyService extends Model
         'name',
         'slug',
         'base_url',
-        'account_endpoint',
         'api_key',
-        'username',
-        'password',
         'limit_monthly',
         'current_usage',
         'is_active',
@@ -23,8 +20,6 @@ class ProxyService extends Model
 
     protected $casts = [
         'api_key' => 'encrypted',
-        'username' => 'encrypted',
-        'password' => 'encrypted',
         'is_active' => 'boolean',
     ];
 }

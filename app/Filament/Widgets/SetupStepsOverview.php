@@ -26,34 +26,33 @@ class SetupStepsOverview extends BaseWidget
     protected function getStats(): array
     {
         // ── Calcolo stagione target ────────────────────────────────────────────
-        // Convenzione DB: season_year = anno di INIZIO stagione
-        // Siamo in PHP year 2026 → stagione in corso = 2025/26 → season_year = 2025
-        $currentYear  = (int) date('Y');
-        $targetSeason = $currentYear - 1;              // 2025
-        $seasonLabel  = $targetSeason . '/' . substr((string)$currentYear, 2); // "2025/26"
+        $currentSeasonModel = \App\Models\Season::where('is_current', true)->first();
+        $targetSeason = $currentSeasonModel ? $currentSeasonModel->season_year : ((int) date('Y') - 1);
+        $seasonLabel  = $targetSeason . '/' . substr((string)($targetSeason + 1), 2); // "2025/26"
+        $seasonId = $currentSeasonModel ? $currentSeasonModel->id : 0;
 
         // Verifica quante squadre con season_year = $targetSeason esistono
         $total     = 20; // Atteso: 20 squadre Serie A
-        $withApiId = Team::where('serie_a_team', 1)
-                         ->where('season_year', $targetSeason)
-                         ->whereNotNull('api_football_data_id')
-                         ->count();
-        $withTier  = Team::where('serie_a_team', 1)
-                         ->where('season_year', $targetSeason)
-                         ->whereNotNull('tier')
-                         ->count();
-        $configured = Team::where('serie_a_team', 1)
-                         ->where('season_year', $targetSeason)
+        
+        $withApiId = Team::whereNotNull('api_id')->count();
+        $withTier  = Team::whereNotNull('tier_globale')->count();
+        
+        // Configurato = squadre attive per questa stagione
+        $configured = \App\Models\TeamSeason::where('season_id', $seasonId)
+                         ->where('is_active', true)
                          ->count();
 
+        // Se non c'è il TeamSeason usiamo le API id come fallback
+        if ($configured === 0 && $currentSeasonModel) {
+             $configured = $withApiId;
+        }
+
         // Distribuzione tier quando presente
-        $tierDist = Team::where('serie_a_team', 1)
-            ->where('season_year', $targetSeason)
-            ->whereNotNull('tier')
-            ->selectRaw('tier, count(*) as cnt')
-            ->groupBy('tier')
-            ->orderBy('tier')
-            ->pluck('cnt', 'tier')
+        $tierDist = Team::whereNotNull('tier_globale')
+            ->selectRaw('tier_globale, count(*) as cnt')
+            ->groupBy('tier_globale')
+            ->orderBy('tier_globale')
+            ->pluck('cnt', 'tier_globale')
             ->toArray();
         $tierLabel = count($tierDist)
             ? collect($tierDist)->map(fn($c, $t) => "T{$t}:{$c}")->implode(' · ')

@@ -34,9 +34,9 @@ trait ManagesFbrefScraping
         
         Log::debug("[Trait ManagesFbrefScraping] ZenRows API URL: {$proxyUrl}");
 
-        // Torniamo alla modalità diretta (API URL) che non fallisce il parsing in Guzzle
-        // Timeout fissato a 40 secondi come richiesto per stabilità proxy
-        $response = Http::timeout(40)->withoutVerifying()->get($proxyUrl);
+        // Timeout alzato a 120s per supportare JS rendering (premium=true + render=true)
+        // su pagine FBref pesanti con ScraperAPI e ZenRows
+        $response = Http::timeout(120)->withoutVerifying()->get($proxyUrl);
         $body = $response->body();
         
         Log::debug("[Trait ManagesFbrefScraping] Response Snippet: " . substr($body, 0, 500));

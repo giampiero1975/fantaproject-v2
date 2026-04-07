@@ -137,20 +137,21 @@ class SincronizzazioneRose extends Page
      */
     public function getOrphansProperty(): \Illuminate\Support\Collection
     {
-        $currentSeason = DB::table('teams')
-            ->where('serie_a_team', 1)
-            ->max('season_year');
+        $currentSeasonModel = \App\Models\Season::where('is_current', true)->first();
+        $seasonId = $currentSeasonModel ? $currentSeasonModel->id : 0;
 
         // Serie A teams per la stagione corrente
-        $activeTeamNames = Team::where('serie_a_team', 1)
-            ->where('season_year', $currentSeason)
-            ->pluck('short_name')
-            ->merge(
-                Team::where('serie_a_team', 1)
-                    ->where('season_year', $currentSeason)
-                    ->pluck('name')
-            )
-            ->map(fn($n) => strtolower(trim($n)))
+        $activeTeams = Team::whereHas('teamSeasons', function ($q) use ($seasonId) {
+            $q->where('season_id', $seasonId)->where('is_active', true);
+        })->get();
+
+        if ($activeTeams->isEmpty()) {
+            $activeTeams = Team::whereNotNull('api_id')->get();
+        }
+
+        $activeTeamNames = $activeTeams->pluck('short_name')
+            ->merge($activeTeams->pluck('name'))
+            ->map(fn($n) => strtolower(trim((string)$n)))
             ->unique()
             ->values()
             ->toArray();

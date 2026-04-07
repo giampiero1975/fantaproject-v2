@@ -1,0 +1,20 @@
+PHPUnit 11.5.48 by Sebastian Bergmann and contributors.
+
+Runtime:       PHP 8.3.4
+Configuration: C:\laragon\www\fantaproject-v2\phpunit.xml
+
+E                                                                   1 / 1 (100%)
+
+Time: 00:01.191, Memory: 52.00 MB
+
+There was 1 error:
+
+1) Tests\Feature\FbrefScraperTest::test_scraping_flow_dispatches_event_and_saves_data
+Error: Class "Database\Factories\SeasonFactory" not found
+
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Factories\Factory.php:950
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Factories\HasFactory.php:21
+C:\laragon\www\fantaproject-v2\tests\Feature\FbrefScraperTest.php:26
+
+ERRORS!
+Tests: 1, Assertions: 0, Errors: 1.

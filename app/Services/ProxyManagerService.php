@@ -43,14 +43,20 @@ class ProxyManagerService
                 return !in_array($proxy->slug, $this->unreliableProxies);
             })
             ->sort(function ($a, $b) {
-                $remA = $a->limit_monthly - $a->current_usage;
-                $remB = $b->limit_monthly - $b->current_usage;
-
-                if ($remA === $remB) {
-                    return $a->js_cost <=> $b->js_cost;
+                // Primary: priority ASC (1 = first choice, 2 = fallback, 3 = last resort)
+                if ($a->priority !== $b->priority) {
+                    return $a->priority <=> $b->priority;
                 }
 
-                return $remB <=> $remA; // DESC
+                // Secondary: remaining credits DESC (same priority → use the one with more credits)
+                $remA = $a->limit_monthly - $a->current_usage;
+                $remB = $b->limit_monthly - $b->current_usage;
+                if ($remA !== $remB) {
+                    return $remB <=> $remA;
+                }
+
+                // Tertiary: js_cost ASC
+                return $a->js_cost <=> $b->js_cost;
             });
 
         $best = $proxies->first();

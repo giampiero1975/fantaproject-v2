@@ -1,0 +1,128 @@
+
+   WARN  Metadata found in doc-comment for method Tests\Unit\ProxyRotationTest::it_picks_the_proxy_with_most_remaining_credits(). Metadata in doc-comments is deprecated and will no longer be supported in PHPUnit 12. Update your test code to use attributes instead.
+
+   WARN  Metadata found in doc-comment for method Tests\Unit\Services\TeamFbrefAlignmentServiceTest::it_can_align_a_team_manually_with_provided_id_and_url(). Metadata in doc-comments is deprecated and will no longer be supported in PHPUnit 12. Update your test code to use attributes instead.
+
+   WARN  Metadata found in doc-comment for method Tests\Unit\Services\TeamFbrefAlignmentServiceTest::it_falls_back_to_direct_search_if_standings_are_empty(). Metadata in doc-comments is deprecated and will no longer be supported in PHPUnit 12. Update your test code to use attributes instead.
+
+   WARN  Metadata found in doc-comment for method Tests\Unit\Services\TeamFbrefAlignmentServiceTest::it_continues_alignment_even_if_standings_scrape_fails(). Metadata in doc-comments is deprecated and will no longer be supported in PHPUnit 12. Update your test code to use attributes instead.
+
+   WARN  Metadata found in doc-comment for method Tests\Feature\ProxyIntensiveTest::test_zenrows_with_spezia_2022(). Metadata in doc-comments is deprecated and will no longer be supported in PHPUnit 12. Update your test code to use attributes instead.
+
+   PASS  Tests\Unit\ExampleTest
+  Ô£ô that true is true   0.01s  
+
+   PASS  Tests\Unit\PlayerMatchTest
+  Ô£ô names are similarÔÇª  0.62s  
+
+   PASS  Tests\Unit\ProxyRotationTest
+  Ô£ô it picks the proxyÔÇª 0.40s  
+
+   FAIL  Tests\Unit\Services\TeamFbrefAlignmentServiceTest
+  Ô£ô it can align a teaÔÇª 0.13s  
+  Ô£ô it falls back to dÔÇª 0.08s  
+  Ô¿» it continues alignÔÇª 0.12s  
+
+­ƒöì TESTING ZENROWS URL: https://api.zenrows.com/v1/?api_key=test-key&url=https%3A%2F%2Ffbref.com%2Fen%2Fcomps%2F11%2F2024-2025%2F2024-2025-Serie-A-Stats&premium=true&render=true
+Ô£à STATUS CODE: 401
+­ƒôä BODY SNIPPET: {"code":"AUTH001","detail":"No apikey information was sent in your request. Please retry by adding the apikey parameter along with your request.","instance":"/v1","status":401,"title":"No apikey provi...
+ÔØî EXCEPTION CAUGHT: La richiesta a ZenRows ├¿ fallita con status: 401
+Failed asserting that false is true.
+­ƒôî TRACE: C:\laragon\www\fantaproject-v2\vendor\phpunit\phpunit\src\Framework\Constraint\Constraint.php:105
+
+   FAIL  Tests\Unit\ZenRowsConnectionTest
+  Ô¿» zenrows api connecÔÇª 0.58s  
+
+   PASS  Tests\Feature\ExampleTest
+  Ô£ô the application reÔÇª 0.38s  
+
+   FAIL  Tests\Feature\FbrefScraperTest
+  Ô¿» scraping flow dispÔÇª 0.11s  
+
+[DEBUG] Testing Proxy: ZenRows (Target: https://fbref.com/en/squads/82110ea4/2022-2023/Spezia-Stats)
+[DEBUG] Generated Proxy URL: https://api.zenrows.com/v1?apikey=d9b8be2a7a1eecdcedeaccaa68305900c3e52bfe5&url=https%3A%2F%2Ffbref.com%2Fen%2Fsquads%2F82110ea4%2F2022-2023%2FSpezia-Stats&premium_proxy=true&proxy_country=it&js_render=true&wait_for=.stats_table
+[DEBUG] Response Status: 401
+[DEBUG] Duration: 1.24s
+
+   WARN  Tests\Feature\ProxyIntensiveTest
+  - zenrows with speziÔÇª 1.32s  
+
+   FAIL  Tests\Feature\SyncSerieASnapshotsTest
+  Ô¿» it syncs teams andÔÇª 0.09s  
+  Ô£ô it aborts if seasoÔÇª 0.08s  
+
+   PASS  Tests\Feature\TierSimulationTest
+  Ô£ô gold standard tierÔÇª 0.12s  
+  ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ  
+   FAILEDÔÇª    ErrorException   
+  Undefined variable $service
+
+  at tests\Unit\Services\TeamFbrefAlignmentServiceTest.php:135
+    131Ôûò         /** 
+    132Ôûò          * NOTA: alignTeam() restituisce false se standings ├¿ vuoto perch├® la ricerca diretta ├¿ stata DISABILITATA.
+    133Ôûò          * Testiamo qui solo il corretto comportamento del fallback su alignManual() se l'URL viene trovato altrove.
+    134Ôûò          */
+  Ô×£ 135Ôûò         $result = $service->alignManual($team, $scraperUrl, '27a96425');
+    136Ôûò 
+    137Ôûò         $this->assertTrue($result);
+    138Ôûò         $this->assertEquals('27a96425', $team->fbref_id);
+    139Ôûò     }
+
+  ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ  
+   FAÔÇª  AssertionFailedError   
+  Eccezione durante la connessione: La richiesta a ZenRows ├¿ fallita con status: 401
+Failed asserting that false is true.
+
+  at tests\Unit\ZenRowsConnectionTest.php:50
+     46Ôûò             $this->assertTrue($response->successful(), "La richiesta a ZenRows ├¿ fallita con status: " . $response->status());
+     47Ôûò         } catch (\Exception $e) {
+     48Ôûò             echo "ÔØî EXCEPTION CAUGHT: " . $e->getMessage() . "\n";
+     49Ôûò             echo "­ƒôî TRACE: " . $e->getFile() . ":" . $e->getLine() . "\n";
+  Ô×£  50Ôûò             $this->fail("Eccezione durante la connessione: " . $e->getMessage());
+     51Ôûò         }
+     52Ôûò     }
+     53Ôûò }
+     54Ôûò
+
+  1   tests\Unit\ZenRowsConnectionTest.php:50
+
+  ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ  
+   FAILEDÔÇª    QueryException   
+  SQLSTATE[23000]: Integrity constraint violation: 19 FOREIGN KEY constraint failed (Connection: sqlite, Database: :memory:, SQL: insert into "team_season" ("team_id", "season_id", "league_id", "updated_at", "created_at") values (1, 1, 1, 2026-04-07 21:55:35, 2026-04-07 21:55:35))
+
+  at vendor\laravel\framework\src\Illuminate\Database\Connection.php:838
+    834Ôûò             $exceptionType = $this->isUniqueConstraintError($e)
+    835Ôûò                 ? UniqueConstraintViolationException::class
+    836Ôûò                 : QueryException::class;
+    837Ôûò 
+  Ô×£ 838Ôûò             throw new $exceptionType(
+    839Ôûò                 $this->getNameWithReadWriteType(),
+    840Ôûò                 $query,
+    841Ôûò                 $this->prepareBindings($bindings),
+    842Ôûò                 $e,
+
+  1   vendor\laravel\framework\src\Illuminate\Database\Connection.php:838
+
+  2   vendor\laravel\framework\src\Illuminate\Database\Connection.php:584
+      NunoMaduro\Collision\Exceptions\TestException::("SQLSTATE[23000]: Integrity constraint violation: 19 FOREIGN KEY constraint failed")
+
+  ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ  
+   FAILED  Tests\Feature\SyÔÇª   
+  Failed asserting that table [teams] matches expected entries count of 2. Entries found: 0.
+.
+
+  at tests\Feature\SyncSerieASnapshotsTest.php:55
+     51Ôûò         // 2. Act: Eseguiamo il comando passandogli l'anno 2025
+     52Ôûò         Artisan::call('football:sync-serie-a', ['season_year' => 2025]);
+     53Ôûò 
+     54Ôûò         // 3. Assert
+  Ô×£  55Ôûò         $this->assertDatabaseCount('teams', 2);
+     56Ôûò         
+     57Ôûò         $this->assertDatabaseHas('teams', [
+     58Ôûò             'api_id' => 108,
+     59Ôûò             'short_name' => 'Milan',
+
+
+  Tests:    4 failed, 1 skipped, 8 passed (29 assertions)
+  Duration: 4.37s
+

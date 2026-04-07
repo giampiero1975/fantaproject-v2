@@ -14,9 +14,7 @@ class TeamFactory extends Factory
         return [
             'name' => $this->faker->company,
             'short_name' => strtoupper($this->faker->lexify('???')),
-            'serie_a_team' => 1,
-            'season_year' => 2025,
-            'api_football_data_id' => $this->faker->unique()->numberBetween(1, 1000),
+            'api_id' => $this->faker->unique()->numberBetween(1, 1000),
             'fbref_url' => null,
             'fbref_id' => null,
         ];

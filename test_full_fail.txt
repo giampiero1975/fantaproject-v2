@@ -1,0 +1,295 @@
+PHPUnit 11.5.48 by Sebastian Bergmann and contributors.
+
+Runtime:       PHP 8.3.4
+Configuration: C:\laragon\www\fantaproject-v2\phpunit.xml
+
+..E.EFE.E
+[DEBUG] Testing Proxy: ZenRows (Target: https://fbref.com/en/squads/82110ea4/2022-2023/Spezia-Stats)
+[DEBUG] Generated Proxy URL: https://api.zenrows.com/v1?apikey=d9b8be2a7a1eecdcedeaccaa68305900c3e52bfe5&url=https%3A%2F%2Ffbref.com%2Fen%2Fsquads%2F82110ea4%2F2022-2023%2FSpezia-Stats&premium_proxy=true&proxy_country=it&js_render=true&wait_for=.stats_table
+[DEBUG] Response Status: 401
+[DEBUG] Duration: 1.07s
+FF.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🧬  TIER EVOLUTION — 36 combinazioni (Trend×Points×Roster)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Base: CF=0.95 | LB=4 | Div=17 | modT1T2=1 | modT4T5=1.1
+  Squadre verità: 20
+
+  📊 Baseline (nessuna feature evoluta): MAE=4.25 | Affinity=55%
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🏆  BEST CONFIG EVOLUTA
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Trend Penalty       : 1x (off)
+  Points Mode         : SÌ (pts/giocate)
+  Roster Proxy        : NO
+  MAE                 : 1.25 (baseline: 4.25)
+  Affinity |Δ|≤3      : 85%
+  Affinity |Δ|≤2      : 80%
+  Δ rispetto baseline : -3
+
+📍 Squadre focus (Best Config Evoluta):
+  Hellas Verona FC              Reale:14  Proj:16  Δ:+2
+  Udinese Calcio                Reale:12  Proj:13  Δ:+1
+  Como 1907                     Reale:10  Proj:14  Δ:+4
+  Parma Calcio 1913             Reale:16  Proj:15  Δ:-1
+  Genoa CFC                     Reale:13  Proj:12  Δ:-1
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+❓ RISPOSTE ALLE DOMANDE SPECIFICHE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  ✅ Verona Δ≤2: RAGGIUNTO con Trend=1x | Points=SÌ | Roster=NO → Δ=2 (Real:14 Proj:16)
+  ✅ Udinese Δ≤3: RAGGIUNTO con Trend=1x | Points=SÌ | Roster=NO → Δ=1 (Real:12 Proj:13)
+  ✅ Affinity >88%: RAGGIUNTO al 95% con Trend=1.05x | Points=SÌ | Roster=NO
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📈 IMPATTO DEL TREND PENALTY (Points=OFF, Roster=OFF cheat sheet)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Penalty   MAE       Affinity≤3  Affinity≤2  Verona Δ   Udinese Δ
+  1x        4.25      55%         45%         9           9         
+  1.05x     4.4       55%         45%         9           9         
+  1.1x      4.45      55%         45%         9           9         
+  1.15x     4.6       55%         45%         9           9         
+  1.2x      4.6       55%         50%         9           9         
+  1.25x     4.6       55%         50%         9           9         
+  1.3x      4.65      55%         50%         9           9         
+  1.35x     4.8       55%         50%         9           9         
+  1.4x      4.85      55%         50%         9           9         
+
+✅ Risultati salvati in: C:\laragon\www\fantaproject-v2\storage\logs/Tiers/evolution_results.json
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🔬  TIER SIMULATION — 1200 combinazioni da testare
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Squadre nel dataset di verità: 20
+
+  [100/1200] Best MAE so far: 2.1765
+  [200/1200] Best MAE so far: 2.1765
+  [300/1200] Best MAE so far: 2.1765
+  [400/1200] Best MAE so far: 2.1765
+  [500/1200] Best MAE so far: 2.0588
+  [600/1200] Best MAE so far: 2.0588
+  [700/1200] Best MAE so far: 2.0588
+  [800/1200] Best MAE so far: 2.0588
+  [900/1200] Best MAE so far: 2.0588
+  [1000/1200] Best MAE so far: 2.0588
+  [1100/1200] Best MAE so far: 2.0588
+  [1200/1200] Best MAE so far: 1.9412
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🏆  BEST CONFIG TROVATA
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Conversion Factor (B) : 0.95
+  Lookback              : 5
+  Fixed Divisor         : 17
+  Modulatore T1-2 (Off) : 1
+  Modulatore T4-5 (Def) : 1.1
+  MAE (classifica)      : 1.9412
+  Affinity (|Δ|≤3)      : 82.4%
+
+📍 Dettaglio squadre focus:
+  Como 1907                     Real: 10  Proiettato: 13  Delta: +3
+  Parma Calcio 1913             Real: 16  Proiettato: 15  Delta: -1
+  Hellas Verona FC              Real: 14  Proiettato: 18  Delta: +4
+  Genoa CFC                     Real: 13  Proiettato: 16  Delta: +3
+
+✅ Risultati salvati in: C:\laragon\www\fantaproject-v2\storage\logs/Tiers/optimal_config_results.json
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+.                                                    14 / 14 (100%)
+
+Time: 00:03.622, Memory: 74.00 MB
+
+There were 4 errors:
+
+1) Tests\Unit\ProxyRotationTest::it_picks_the_proxy_with_most_remaining_credits
+Illuminate\Database\QueryException: SQLSTATE[23000]: Integrity constraint violation: 19 NOT NULL constraint failed: proxy_services.base_url (Connection: sqlite, Database: :memory:, SQL: insert into "proxy_services" ("name", "slug", "limit_monthly", "current_usage", "is_active", "priority", "js_cost", "updated_at", "created_at") values (Low Credits, low, 1000, 900, 1, 1, 1, 2026-04-07 18:57:18, 2026-04-07 18:57:18))
+
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Connection.php:838
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Connection.php:794
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Connection.php:573
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Connection.php:537
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Query\Processors\Processor.php:32
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Query\Builder.php:4051
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Builder.php:2235
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Model.php:1436
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Model.php:1401
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Model.php:1240
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Builder.php:1219
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Support\helpers.php:390
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Builder.php:1218
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Support\Traits\ForwardsCalls.php:23
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Model.php:2540
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Model.php:2556
+C:\laragon\www\fantaproject-v2\tests\Unit\ProxyRotationTest.php:18
+
+Caused by
+PDOException: SQLSTATE[23000]: Integrity constraint violation: 19 NOT NULL constraint failed: proxy_services.base_url
+
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Connection.php:584
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Connection.php:827
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Connection.php:794
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Connection.php:573
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Connection.php:537
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Query\Processors\Processor.php:32
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Query\Builder.php:4051
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Builder.php:2235
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Model.php:1436
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Model.php:1401
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Model.php:1240
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Builder.php:1219
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Support\helpers.php:390
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Builder.php:1218
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Support\Traits\ForwardsCalls.php:23
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Model.php:2540
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Model.php:2556
+C:\laragon\www\fantaproject-v2\tests\Unit\ProxyRotationTest.php:18
+
+2) Tests\Unit\Services\TeamFbrefAlignmentServiceTest::it_falls_back_to_direct_search_if_standings_are_empty
+Illuminate\Database\QueryException: SQLSTATE[HY000]: General error: 1 no such table: proxy_services (Connection: sqlite, Database: :memory:, SQL: select * from "proxy_services" where "is_active" = 1)
+
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Connection.php:838
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Connection.php:794
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Connection.php:411
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Query\Builder.php:3386
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Query\Builder.php:3371
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Query\Builder.php:3961
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Query\Builder.php:3370
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Builder.php:902
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Builder.php:884
+C:\laragon\www\fantaproject-v2\app\Services\ProxyManagerService.php:36
+C:\laragon\www\fantaproject-v2\app\Services\ProxyManagerService.php:91
+C:\laragon\www\fantaproject-v2\app\Services\TeamFbrefAlignmentService.php:240
+C:\laragon\www\fantaproject-v2\app\Services\TeamFbrefAlignmentService.php:169
+C:\laragon\www\fantaproject-v2\tests\Unit\Services\TeamFbrefAlignmentServiceTest.php:75
+
+Caused by
+PDOException: SQLSTATE[HY000]: General error: 1 no such table: proxy_services
+
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Connection.php:420
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Connection.php:827
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Connection.php:794
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Connection.php:411
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Query\Builder.php:3386
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Query\Builder.php:3371
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Query\Builder.php:3961
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Query\Builder.php:3370
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Builder.php:902
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Builder.php:884
+C:\laragon\www\fantaproject-v2\app\Services\ProxyManagerService.php:36
+C:\laragon\www\fantaproject-v2\app\Services\ProxyManagerService.php:91
+C:\laragon\www\fantaproject-v2\app\Services\TeamFbrefAlignmentService.php:240
+C:\laragon\www\fantaproject-v2\app\Services\TeamFbrefAlignmentService.php:169
+C:\laragon\www\fantaproject-v2\tests\Unit\Services\TeamFbrefAlignmentServiceTest.php:75
+
+3) Tests\Unit\ZenRowsConnectionTest::test_zenrows_api_connection
+Illuminate\Database\QueryException: SQLSTATE[HY000]: General error: 1 no such table: proxy_services (Connection: sqlite, Database: :memory:, SQL: select * from "proxy_services" where "name" LIKE %ZenRows% limit 1)
+
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Connection.php:838
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Connection.php:794
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Connection.php:411
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Query\Builder.php:3386
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Query\Builder.php:3371
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Query\Builder.php:3961
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Query\Builder.php:3370
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Builder.php:902
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Builder.php:884
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Concerns\BuildsQueries.php:366
+C:\laragon\www\fantaproject-v2\tests\Unit\ZenRowsConnectionTest.php:17
+
+Caused by
+PDOException: SQLSTATE[HY000]: General error: 1 no such table: proxy_services
+
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Connection.php:420
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Connection.php:827
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Connection.php:794
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Connection.php:411
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Query\Builder.php:3386
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Query\Builder.php:3371
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Query\Builder.php:3961
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Query\Builder.php:3370
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Builder.php:902
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Builder.php:884
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Concerns\BuildsQueries.php:366
+C:\laragon\www\fantaproject-v2\tests\Unit\ZenRowsConnectionTest.php:17
+
+4) Tests\Feature\FbrefScraperTest::test_scraping_flow_dispatches_event_and_saves_data
+Illuminate\Database\QueryException: SQLSTATE[23000]: Integrity constraint violation: 19 NOT NULL constraint failed: seasons.start_date (Connection: sqlite, Database: :memory:, SQL: insert into "seasons" ("season_year", "is_current", "updated_at", "created_at") values (2025, 1, 2026-04-07 18:57:19, 2026-04-07 18:57:19))
+
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Connection.php:838
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Connection.php:794
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Connection.php:573
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Connection.php:537
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Query\Processors\Processor.php:32
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Query\Builder.php:4051
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Builder.php:2235
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Model.php:1436
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Model.php:1401
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Model.php:1240
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Builder.php:1219
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Support\helpers.php:390
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Builder.php:1218
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Support\Traits\ForwardsCalls.php:23
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Model.php:2540
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Model.php:2556
+C:\laragon\www\fantaproject-v2\tests\Feature\FbrefScraperTest.php:26
+
+Caused by
+PDOException: SQLSTATE[23000]: Integrity constraint violation: 19 NOT NULL constraint failed: seasons.start_date
+
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Connection.php:584
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Connection.php:827
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Connection.php:794
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Connection.php:573
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Connection.php:537
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Query\Processors\Processor.php:32
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Query\Builder.php:4051
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Builder.php:2235
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Model.php:1436
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Model.php:1401
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Model.php:1240
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Builder.php:1219
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Support\helpers.php:390
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Builder.php:1218
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Support\Traits\ForwardsCalls.php:23
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Model.php:2540
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Model.php:2556
+C:\laragon\www\fantaproject-v2\tests\Feature\FbrefScraperTest.php:26
+
+--
+
+There were 3 failures:
+
+1) Tests\Unit\Services\TeamFbrefAlignmentServiceTest::it_continues_alignment_even_if_standings_scrape_fails
+Failed asserting that false is true.
+
+C:\laragon\www\fantaproject-v2\tests\Unit\Services\TeamFbrefAlignmentServiceTest.php:113
+
+2) Tests\Feature\ProxyIntensiveTest::test_zenrows_with_spezia_2022
+Proxy ZenRows failed with status 401
+Failed asserting that 401 matches expected 200.
+
+C:\laragon\www\fantaproject-v2\tests\Feature\ProxyIntensiveTest.php:49
+
+3) Tests\Feature\SyncSerieASnapshotsTest::test_it_syncs_teams_and_attaches_to_active_season
+Failed asserting that table [teams] matches expected entries count of 2. Entries found: 0.
+.
+
+C:\laragon\www\fantaproject-v2\vendor\laravel\framework\src\Illuminate\Foundation\Testing\Concerns\InteractsWithDatabase.php:94
+C:\laragon\www\fantaproject-v2\tests\Feature\SyncSerieASnapshotsTest.php:55
+
+--
+
+There was 1 risky test:
+
+1) Tests\Unit\Services\TeamFbrefAlignmentServiceTest::it_continues_alignment_even_if_standings_scrape_fails
+* Test code or tested code did not remove its own error handlers
+
+* Test code or tested code did not remove its own exception handlers
+
+C:\laragon\www\fantaproject-v2\tests\Unit\Services\TeamFbrefAlignmentServiceTest.php:82
+
+ERRORS!
+Tests: 14, Assertions: 22, Errors: 4, Failures: 3, PHPUnit Deprecations: 5, Risky: 1.
