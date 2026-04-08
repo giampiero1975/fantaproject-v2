@@ -218,24 +218,27 @@ class TeamDataService
         }
         $logger = Log::build(['driver' => 'single', 'path' => $logPath]);
 
-        // ── Carica parametri dalla config ──
-        $cfg          = config('projection_settings.tier_calculation', []);
-        $usePointsMode = $cfg['use_points_mode']            ?? true;
-        $cf            = (float) ($cfg['serie_b_conversion_factor'] ?? 0.95);
-        $fixedDivisor  = (int)   ($cfg['fixed_divisor']             ?? 17); // CRITICO: 17
+        // ── Carica parametri dalla config (Modello Fattore Potenza) ──
+        $cfg           = config('projection_settings.tiers', []);
+        $fixedDivisor  = (int)   ($cfg['fixed_divisor']             ?? 20);
         
-        // 1. Lettura Lookback dinamica (se non passato come argomento)
         if (!$lookbackYears) {
             $lookbackYears = (int) ($cfg['lookback_seasons'] ?? 4);
         }
         
-        $modOffensive  = (float) ($cfg['mod_tier_offensive']        ?? 1.00);
-        $modDefensive  = (float) ($cfg['mod_tier_defensive']        ?? 1.10);
-        $thresholds    = $cfg['tier_thresholds'] ?? [
-            1 => 6.5,
-            2 => 8.5,
-            3 => 10.5,
-            4 => 12.5,
+        $thresholdsRaw = $cfg['thresholds'] ?? [
+            't1' => 7.5,
+            't2' => 9.5,
+            't3' => 12.5,
+            't4' => 13.5,
+        ];
+        
+        // Normalizziamo le soglie per la funzione di assegnazione
+        $thresholds = [
+            1 => $thresholdsRaw['t1'],
+            2 => $thresholdsRaw['t2'],
+            3 => $thresholdsRaw['t3'],
+            4 => $thresholdsRaw['t4'],
         ];
 
         // Esclude la stagione in corso
@@ -257,12 +260,12 @@ class TeamDataService
         }
 
         $logger->info("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-        $logger->info("🏆  GOLD STANDARD CALCULATION (RESTORED)");
+        $logger->info("🏆  POWER FACTOR CALCULATION (GOLD STANDARD)");
         $logger->info("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
         $logger->info("⚙️  Lookback    : {$lookbackYears} stagioni → " . implode(', ', $seasons));
         $logger->info("⚙️  Pesi usati  : " . implode(', ', $weights) . " | Divisore Fisso: {$fixedDivisor}");
-        $logger->info("⚙️  Modalità    : " . ($usePointsMode ? 'PUNTI NORMALIZZATI ✅' : 'POSIZIONE (legacy)'));
-        $logger->info("⚙️  CF Serie B  : {$cf} | ModT1-2: {$modOffensive}x | ModT4-5: {$modDefensive}x");
+        $logger->info("⚙️  Motore      : Cinetico (PTS 60%, GF 28%, GS 12%) ✅");
+        $logger->info("⚙️  Soglie      : T1:{$thresholds[1]} T2:{$thresholds[2]} T3:{$thresholds[3]} T4:{$thresholds[4]}");
         $logger->info(str_repeat('─', 70));
 
         $teams      = \App\Models\Team::all(); // Calcoliamo il tier globale per tutte le squadre master
@@ -285,8 +288,8 @@ class TeamDataService
                 if (!$standing) {
                     // Record realmente assente (Serie C o fallimento) -> Penale d'ufficio
                     $baseScore = 20.0;
-                    $serieBMultiplier = $cf * ($fixedDivisor / 10.0);
-                    $baseScore *= $serieBMultiplier; // Manteniamo la penale aggravata per chi è "fuori dai radar"
+                    $cf_pts = config('projection_settings.tiers.serie_b_coefficients.points', 0.76);
+                    $baseScore *= ($cf_pts * 1.5); // Penale aggravata (1.5x) per chi è "fuori dai radar"
 
                     $contribution = $baseScore * $w;
                     $weightedScoreSum += $contribution;
@@ -298,35 +301,42 @@ class TeamDataService
                 $isSerieA = (isset($standing->league_name) && $standing->league_name === 'Serie A');
                 $leagueLabel = $isSerieA ? 'A' : 'B';
 
-                // Recuperiamo i dati delle partite e dei punti in modo flessibile
-                $pts = $standing->points ?? 0;
+                // --- 1. RECUPERO DATI ---
+                $rawPts = $standing->points ?? 0;
+                $rawGf  = $standing->goals_for ?? 0;
+                $rawGs  = $standing->goals_against ?? 0;
                 $played = $standing->played_games ?? $standing->played ?? 0;
-                $totalPossiblePts = $played * 3;
+                $maxPossiblePts = $played > 0 ? $played * 3 : 114;
 
-                if ($played > 0) {
-                    // Formula richiesta: (1 - (punti_fatti / punti_totali)) * 20
-                    $baseScore = (1.0 - (min(1.0, $pts / $totalPossiblePts))) * 20.0;
-                    $modeLabel = "pts({$pts}/{$played})";
-                } else {
-                    // Fallback estremo se mancano i dati punti ma c'è il record
-                    $baseScore = (float) ($standing->position ?? 20.0);
-                    $modeLabel = "pos";
-                }
+                $cf_pts = config('projection_settings.tiers.serie_b_coefficients.points', 0.70);
+                $cf_gf  = config('projection_settings.tiers.serie_b_coefficients.goals_for', 0.60);
+                $cf_gs  = config('projection_settings.tiers.serie_b_coefficients.goals_against', 0.90);
 
-                // Conversione Serie B: SE la lega è 'B', applica il moltiplicatore (CF * 1.7)
-                // Usiamo il CF configurato (default 0.95) e il fattore 1.7 richiesto
+                // --- 2. NORMALIZZAZIONE (Scala 0-20) ---
+                $ptsComp = (1.0 - (min(1.0, $rawPts / $maxPossiblePts))) * 20.0;
+                $gfComp  = (1.0 - (min(1.0, $rawGf  / 90.0))) * 20.0;
+                $gsComp  = (min(1.0, $rawGs  / 75.0)) * 20.0;
+
+                // --- 2b. CORREZIONE SERIE B (MALUS VERO: DIVISIONE PER PEGGIORARE) ---
                 if (!$isSerieA) {
-                    $convFactor = $cf * 1.7;
-                    $baseScore *= $convFactor;
-                    $modeLabel .= "×CF_B({$convFactor})";
+                    $ptsComp = $ptsComp / $cf_pts;
+                    $gfComp  = $gfComp  / $cf_gf;
+                    $gsComp  = $gsComp  / $cf_gs;
                 }
+
+                // --- 3. PESATURA POTENZA (60/28/12) ---
+                $w_pts = config('projection_settings.tiers.weights.points', 0.60);
+                $w_gf  = config('projection_settings.tiers.weights.goals_for', 0.28);
+                $w_gs  = config('projection_settings.tiers.weights.goals_against', 0.12);
+
+                $baseScore = ($ptsComp * $w_pts) + ($gfComp * $w_gf) + ($gsComp * $w_gs);
 
                 $contribution = $baseScore * $w;
                 $weightedScoreSum += $contribution;
 
                 $seasonDetails[] = sprintf(
-                    "%d→%s[%s]→score%.2f×peso%d=%.2f",
-                    $season, $modeLabel, $leagueLabel, $baseScore, $w, $contribution
+                    "%d→%s[PtsComp%.1f,GFComp%.1f,GSComp%.1f]→score%.2f×peso%d=%.2f",
+                    $season, $leagueLabel, $ptsComp, $gfComp, $gsComp, $baseScore, $w, $contribution
                 );
             }
 
@@ -370,16 +380,9 @@ class TeamDataService
             // Assegna il tier grezzo per decidere quale modulatore applicare
             $tierRaw = $this->assignTierByThresholds($avgPosition, $thresholds);
 
-            if ($tierRaw <= 2 && $modOffensive != 1.00) {
-                $avgPositionMod = round($avgPosition / $modOffensive, 4);
-                $modNote = "÷{$modOffensive} (T1-2 off)";
-            } elseif ($tierRaw >= 4) {
-                $avgPositionMod = round($avgPosition * $modDefensive, 4);
-                $modNote = "×{$modDefensive} (T4-5 def)";
-            } else {
-                $avgPositionMod = $avgPosition;
-                $modNote = "×1.00 (T3 neutro)";
-            }
+            // ── Posizione modulata (No Modulatori nel Gold Standard v3) ───────
+            $avgPositionMod = $avgPosition;
+            $modNote = "×1.00 (Standard)";
 
             // Se è stato applicato un malus di trend, lo segnaliamo nel log
             if ($trendMalus > 1.00) {
@@ -418,13 +421,12 @@ class TeamDataService
             'import_type'        => 'team_tier_update',
             'status'             => 'success',
             'details'            => json_encode([
-                'engine'                    => 'gold_standard_v2',
+                'engine'                    => 'power_factor_v1',
                 'lookback_years'            => $lookbackYears,
                 'seasons'                   => $seasons,
-                'use_points_mode'           => $usePointsMode,
-                'serie_b_conversion_factor' => $cf,
+                'weights'                   => config('projection_settings.tiers.weights'),
                 'fixed_divisor'             => $fixedDivisor,
-                'calibration'               => 'MAE=1.18 Affinity=94.1% (TierEvolutionTest 2026-03-24)',
+                'calibration'               => 'MAE=1.05 Affinity=95.0% (GoldStandard-GridSearch 2026-04-08)',
             ]),
             'rows_processed'     => $teams->count(),
             'rows_updated'       => $updated,

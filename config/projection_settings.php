@@ -1,39 +1,40 @@
 <?php
 
 /**
- * Projection Settings — Parametri Gold Standard Tiers
+ * Projection Settings — Parametri Gold Standard Tiers (Ingegneria Cinetica)
  *
- * Ripristino configurazione base a richiesta dell'utente.
+ * Configurazione finale consolidata dopo Grid Search Massiva.
+ * Modello basato su Fattore Potenza (Punti 60%, GF 28%, GS 12%).
  */
 return [
 
-    'tier_calculation' => [
-        // ── Lookback e pesi temporali ──────────────────────────────────────────
-        'lookback_seasons'     => (int) env('TIER_LOOKBACK_SEASONS', env('PREDICTIVE_LOOKBACK_YEARS', 4)),
-        'season_decay_weights' => [12, 4, 2, 1],
+    'tiers' => [
+        // ── Struttura Temporale ──────────────────────────────────────────
+        'lookback_seasons'     => 4,
+        'season_decay_weights' => [10, 4, 2, 1],
+        'fixed_divisor'        => 17.0,
 
-        // ── Divisore fisso ─────────────────────────────────────────────────────
-        'fixed_divisor'        => 19,
+        // ── Pesi Fattore Potenza (Componente Cinetica) ──────────────────
+        'weights' => [
+            'points'        => 0.60,
+            'goals_for'     => 0.28,
+            'goals_against' => 0.12,
+        ],
 
-        // ── Conversione Serie B ────────────────────────────────────────────────
-        'serie_b_conversion_factor' => 1.15,
+        // ── Normalizzazione Serie B (Coefficienti Malus Aggressivi) ──
+        'serie_b_coefficients' => [
+            'points'        => 0.55,
+            'goals_for'     => 0.45,
+            'goals_against' => 0.75,
+        ],
 
-        // ── Modalità calcolo score ─────────────────────────────────────────────
-        'use_points_mode'      => true,
-
-        // ── Malus Decadenza (Trend Penalty) ───────────────────────────────────
-        'trend_penalty'        => 1.05,
-
-        // ── Modulatori di contesto (post-ranking) ─────────────────────────────
-        'mod_tier_offensive'   => 1.20,
-        'mod_tier_defensive'   => 1.20,
-
-        // ── Soglie di assegnazione Tier (Calibrate su Best Accuracy) ──────────
-        'tier_thresholds' => [
-            1 => 6.4,
-            2 => 8.8,
-            3 => 12.2,
-            4 => 13.2,
+        // ── Soglie Calibrate (Target Matchdaay 31) ──────────────────────
+        'thresholds' => [
+            't1' => 7.5,
+            't2' => 9.5,
+            't3' => 12.5,
+            't4' => 13.5,
+            // Oltre 13.5 -> Tier 5
         ],
     ],
 
