@@ -16,10 +16,10 @@ use Throwable;
 class SincronizzazioneRose extends Page
 {
     protected static ?string $navigationIcon  = 'heroicon-o-arrow-path';
-    protected static ?string $navigationLabel = '5. Sincronizzazione Rose';
+    protected static ?string $navigationLabel = '7. Sincronizzazione Rose';
     protected static ?string $navigationGroup = 'Setup Dati';
-    protected static ?int    $navigationSort  = 5;
-    protected static ?string $title           = 'Sincronizzazione Rose Serie A (Step 5)';
+    protected static ?int    $navigationSort  = 7;
+    protected static ?string $title           = 'Sincronizzazione Rose Serie A (Step 7)';
     protected static string  $view            = 'filament.pages.sincronizzazione-rose';
     protected static ?string $slug            = 'sincronizzazione-rose';
 
@@ -29,55 +29,46 @@ class SincronizzazioneRose extends Page
     {
         return [
             // ── Sincronizza Rose API ──────────────────────────────────────────
+            // ── Sincronizza Rose API ──────────────────────────────────────────
             Action::make('syncApiData')
-                ->label('Sincronizza Rose API')
+                ->label('1. Sync API Football')
                 ->icon('heroicon-o-arrow-path')
                 ->color('warning')
                 ->requiresConfirmation()
-                ->modalHeading('Sincronizza Rose Serie A')
+                ->modalHeading('Sincronizza Rose Serie A (API)')
                 ->modalDescription(
-                    'Interroga football-data.org per arricchire i player con api_football_data_id, '
-                    . 'date_of_birth e posizione. '
-                    . 'Stagione auto-rilevata dal DB. '
-                    . 'Solo i giocatori non ancora collegati verranno elaborati (usa --force per tutti). '
-                    . 'Durata stimata: ~2.5 min. Nessun record verrà cancellato.'
+                    'Interroga football-data.org per arricchire i player con api_id, proprietá (parent_team) e date_of_birth. '
+                    . 'Sincronizza automaticamente le ultime 3 stagioni (Pregresso).'
                 )
                 ->action(function (): void {
-                    set_time_limit(300);
-
-                    Notification::make()
-                        ->title('⏳ Sincronizzazione avviata...')
-                        ->body('Recupero rose da football-data.org. Attendere ~2.5 minuti. La barra di avanzamento si aggiornerà.')
-                        ->warning()
-                        ->persistent()
-                        ->send();
+                    set_time_limit(600);
+                    Notification::make()->title('⏳ Sync API avviato...')->body('Processo triennale in corso. Monitora la barra progressi.')->warning()->send();
 
                     try {
                         Artisan::call('players:sync-from-active-teams');
-
-                        $output = Artisan::output();
-
-                        preg_match('/Aggiornati\s*:\s*(\d+)/', $output, $mU);
-                        preg_match('/Creati\s*:\s*(\d+)/',     $output, $mC);
-                        preg_match('/Orfani\s*:\s*(\d+)/',     $output, $mO);
-
-                        $updated = (int)($mU[1] ?? 0);
-                        $created = (int)($mC[1] ?? 0);
-                        $orphans = (int)($mO[1] ?? 0);
-
-                        Notification::make()
-                            ->title('✅ Sincronizzazione completata!')
-                            ->body("Aggiornati: {$updated} | Creati: {$created} | Orfani: {$orphans}")
-                            ->success()
-                            ->send();
-
+                        Notification::make()->title('✅ Sync API completato!')->success()->send();
                     } catch (Throwable $e) {
-                        Log::error('SincronizzazioneRose::syncApiData — ' . $e->getMessage());
-                        Notification::make()
-                            ->title('Errore sincronizzazione')
-                            ->body($e->getMessage())
-                            ->danger()
-                            ->send();
+                        Notification::make()->title('Errore API')->body($e->getMessage())->danger()->send();
+                    }
+                }),
+
+            // ── Sincronizza FBref IDs ──────────────────────────────────────────
+            Action::make('syncFbrefData')
+                ->label('2. Sync FBref IDs')
+                ->icon('heroicon-o-magnifying-glass')
+                ->color('primary')
+                ->requiresConfirmation()
+                ->modalHeading('Ricerca Automatica ID FBref')
+                ->modalDescription('Cerca gli URL e gli ID FBref mancanti tramite ricerca semantica dei nomi. Consuma crediti proxy.')
+                ->action(function (): void {
+                    set_time_limit(600);
+                    Notification::make()->title('⏳ Ricerca FBref avviata...')->body('Ricerca in corso per i giocatori mancanti di URL.')->info()->send();
+
+                    try {
+                        Artisan::call('fbref:update-player-fbref-urls', ['--all' => true]);
+                        Notification::make()->title('✅ Ricerca FBref completata!')->success()->send();
+                    } catch (Throwable $e) {
+                        Notification::make()->title('Errore FBref')->body($e->getMessage())->danger()->send();
                     }
                 }),
 

@@ -11,12 +11,15 @@ class ImportLog extends Model
     
     protected $fillable = [
         'original_file_name',
+        'file_path',
         'import_type',
+        'season_id',
         'status',
         'details',
         'rows_processed',
         'rows_created',
         'rows_updated',
+        'rows_ceduti',
     ];
     
     protected $guarded = [];

@@ -17,10 +17,10 @@ class ManageSeason extends Page implements HasTable
 {
     use InteractsWithTable;
     protected static ?string $navigationIcon = 'heroicon-o-calendar-days';
-    protected static ?string $navigationGroup = 'Impostazioni di Sistema';
-    protected static ?string $navigationLabel = 'Gestione Stagione';
+    protected static ?string $navigationGroup = 'Setup Dati';
+    protected static ?string $navigationLabel = '1. Gestione Stagioni';
     protected static ?string $title = 'Gestione Stagione API';
-    protected static ?int $navigationSort = 10;
+    protected static ?int $navigationSort = 1;
     protected static string $view = 'filament.pages.manage-season';
 
     public $localSeasonState;

@@ -12,10 +12,10 @@ use Illuminate\Support\Facades\DB;
 class TierSquadre extends Page
 {
     protected static ?string $navigationIcon = 'heroicon-o-chart-bar';
-    protected static ?string $navigationLabel = '3. Tier Squadre';
+    protected static ?string $navigationLabel = '4. Tier Engine';
     protected static ?string $navigationGroup = 'Setup Dati';
-    protected static ?int $navigationSort = 3;
-    protected static ?string $title = 'Tier Squadre';
+    protected static ?int $navigationSort = 4;
+    protected static ?string $title = 'Tier Engine';
     protected static string $view = 'filament.pages.tier-squadre';
 
     public function getTeams(): \Illuminate\Support\Collection

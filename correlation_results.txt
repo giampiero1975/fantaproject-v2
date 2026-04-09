@@ -1,0 +1,15 @@
+
+MATRICE DI CORRELAZIONE vs POSIZIONE FINALE (2021-2024)
+Nota: Posizione BASSA (1,2,3) = Squadra forte | Posizione ALTA (18,19,20) = Squadra debole
+------------------------------------------------------------
+PARAM      | CORR       | PESO VISIVO (Intensità)
+------------------------------------------------------------
+WON        | -0.9295    | ███████████████████████████ [MOLTO ALTO]
+DRAW       |  0.0738    | ▓▓                         [BASSO]
+LOST       |  0.8832    | ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓ [MOLTO ALTO]
+GF         | -0.8215    | ████████████████████████ [MOLTO ALTO]
+GS         |  0.7927    | ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓ [ALTO]
+------------------------------------------------------------
+Interpretazione:
+- WON/GF (█): Correlazione negativa molto forte (Più vinci/segni, più la posizione scende verso 1).
+- LOST/GS (▓): Correlazione positiva molto forte (Più perdi/subisci, più la posizione sale verso 20).

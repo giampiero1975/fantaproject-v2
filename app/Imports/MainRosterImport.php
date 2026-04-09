@@ -8,11 +8,12 @@ use Illuminate\Support\Facades\Log;
 
 class MainRosterImport implements WithMultipleSheets, SkipsUnknownSheets
 {
-    private TuttiSheetImport $tuttiSheetImporter;
+    private int $seasonId;
 
-    public function __construct()
+    public function __construct(int $seasonId)
     {
-        $this->tuttiSheetImporter = new TuttiSheetImport();
+        $this->seasonId = $seasonId;
+        $this->tuttiSheetImporter = new TuttiSheetImport($this->seasonId);
     }
 
     public function sheets(): array

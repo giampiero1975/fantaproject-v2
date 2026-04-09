@@ -30,4 +30,9 @@ class Season extends Model
         return $this->belongsToMany(Team::class, 'team_season', 'season_id', 'team_id')
             ->withTimestamps();
     }
+
+    public function rosters()
+    {
+        return $this->hasMany(PlayerSeasonRoster::class);
+    }
 }

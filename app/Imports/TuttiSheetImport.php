@@ -25,6 +25,9 @@ class TuttiSheetImport implements ToModel, WithHeadingRow, SkipsOnError
     public int $createdCount   = 0;
     public int $updatedCount   = 0;
 
+    /** @var array Elenco degli ID calciatori (DB) processati in questa sessione */
+    private array $processedPlayerIds = [];
+
     /**
      * Cache per i team già trovati, per ottimizzare le query.
      * @var array
@@ -33,13 +36,17 @@ class TuttiSheetImport implements ToModel, WithHeadingRow, SkipsOnError
 
     private RoleNormalizationService $roleNormalizer;
 
-    public function __construct()
+    private int $seasonId;
+
+    public function __construct(int $seasonId)
     {
+        $this->seasonId = $seasonId;
         self::$keysLoggedForRosterImport = false;
         $this->rowDataRowCount = 0;
         $this->processedCount  = 0;
         $this->createdCount    = 0;
         $this->updatedCount    = 0;
+        $this->processedPlayerIds = [];
         $this->roleNormalizer  = new RoleNormalizationService();
     }
 
@@ -50,24 +57,14 @@ class TuttiSheetImport implements ToModel, WithHeadingRow, SkipsOnError
 
     /**
      * Chiamato da maatwebsite/excel per ogni riga.
-     *
-     * NOTA CRITICA su ToModel:
-     *   - Restituire una nuova istanza Player (non salvata) → excel esegue INSERT
-     *   - Restituire null → riga saltata (nessun INSERT)
-     *   - NON chiamare Player::create() / save() qui: excel lo fa da solo
-     *     e wrappa ogni operazione in una transaction. Se salviamo prima,
-     *     il double-save causerebbe una unique-key violation → rollback.
-     *
-     * Per i record ESISTENTI (trovati via withTrashed), gestiamo il
-     * save/restore manualmente e restituiamo null per saltare il salvataggio
-     * automatico di excel.
+     * Gestiamo manualmente il salvataggio sia dell'anagrafica che del roster stagionale.
      */
     public function model(array $row): ?Player
     {
         $this->rowDataRowCount++;
 
         if (!self::$keysLoggedForRosterImport && !empty($row)) {
-            Log::info('TuttiSheetImport@model: CHIAVI RICEVUTE: ' . json_encode(array_keys($row)));
+            Log::info('TuttiSheetImport: [DIAG] CHIAVI RICEVUTE: ' . json_encode(array_keys($row)));
             self::$keysLoggedForRosterImport = true;
         }
 
@@ -114,69 +111,108 @@ class TuttiSheetImport implements ToModel, WithHeadingRow, SkipsOnError
             return null;
         }
 
-        $playerData = [
+        // Dati Anagrafici (Tabella players)
+        $bioData = [
             'name'              => $nome,
+            'fanta_platform_id' => (int)$fantaPlatformId,
+        ];
+
+        // Dati Roster Stagionale (Tabella player_season_roster)
+        $rosterData = [
             'team_id'           => $teamId,
-            'team_name'         => $teamName,
             'role'              => $normalizedRoles['role_main'],
             'detailed_position' => $normalizedRoles['detailed_position'],
             'initial_quotation' => ($qti !== null && is_numeric($qti)) ? (int)$qti : null,
             'current_quotation' => ($qta !== null && is_numeric($qta)) ? (int)$qta : null,
             'fvm'               => $fvm,
-            'fanta_platform_id' => (int)$fantaPlatformId,
         ];
 
         try {
-            // ── FASE 1: Cerca record esistente (inclusi soft-deleted) ─────────
+            // ── 1. GESTIONE ANAGRAFICA (Player) ───────────────────────────────────
             $player = Player::withTrashed()
                 ->where('fanta_platform_id', (int)$fantaPlatformId)
                 ->first();
 
-            // ── FASE 2: Fallback per nome+squadra ────────────────────────────
             if (!$player) {
+                // Se non trovato per ID, fallback per nome+squadra (stessa logica di prima)
+                // Usiamo il teamId per aiutare il matching ma in players non lo salviamo
                 $teamModel = Team::find($teamId);
                 if ($teamModel) {
-                    $player = $this->findPlayer(['name' => $nome], $teamModel, $normalizedRoles['role_main']);
+                    $matchedByName = $this->findPlayer(['name' => $nome], $teamModel, $normalizedRoles['role_main']);
+                    
+                    // ── LOGICA DI PROTEZIONE ID ──────────────────────────────────
+                    // Se troviamo un calciatore per nome, ma questo ha già un ID DIVERSO 
+                    // nel database, allora NON è lo stesso calciatore (es. i due Milinkovic-Savic).
+                    if ($matchedByName && $matchedByName->fanta_platform_id && $matchedByName->fanta_platform_id != (int)$fantaPlatformId) {
+                        Log::info("TuttiSheetImport: [MATCH_SIMILARITY_RIFIUTATO] '{$nome}' ignorato match con ID DB {$matchedByName->fanta_platform_id} perché l'ID del file è {$fantaPlatformId}");
+                        $matchedByName = null;
+                    }
+                    
+                    $player = $matchedByName;
                 }
             }
 
-            // ── Record ESISTENTE: gestione completa manuale, poi return null ──
-            if ($player) {
-                // Logica di merge per il nome (mantieni il più lungo)
-                if (strlen($player->name) > strlen($playerData['name'])) {
-                    $playerData['name'] = $player->name;
+            if (!$player) {
+                // Nuovo calciatore
+                $player = Player::create(array_merge($bioData, [
+                    'role'              => $rosterData['role'],
+                    'detailed_position' => $rosterData['detailed_position'],
+                ]));
+                $this->createdCount++;
+                Log::info("TuttiSheetImport: [CREATO_NUOVO] '{$nome}' (ID Plataforma: {$fantaPlatformId}) -> ID DB: {$player->id}");
+            } else {
+                // Aggiornamento anagrafica esistente
+                $wasMatchedBy = $player->fanta_platform_id == $fantaPlatformId ? "ID ({$fantaPlatformId})" : "Nome/Squadra Similarity";
+                Log::info("TuttiSheetImport: [MATCH_TROVATO] '{$nome}' (ID: {$fantaPlatformId}) corrisponde a ID DB: {$player->id} (Metodo: {$wasMatchedBy})");
+                
+                $updateData = [];
+                if (strlen($player->name) < strlen($bioData['name'])) {
+                    $updateData['name'] = $bioData['name'];
                 }
 
-                // Logica di merge per detailed_position
+                // Aggiorniamo sempre il ruolo e le posizioni dettagliate all'ultimo caricamento
+                $updateData['role'] = $rosterData['role'];
+                
                 $existing = $player->detailed_position;
                 if (!empty($existing) && is_array($existing)) {
-                    $merged = array_unique(array_merge($existing, $playerData['detailed_position']));
+                    $merged = array_unique(array_merge($existing, $rosterData['detailed_position']));
                     sort($merged);
-                    $playerData['detailed_position'] = $merged;
+                    $updateData['detailed_position'] = $merged;
+                } else {
+                    $updateData['detailed_position'] = $rosterData['detailed_position'];
                 }
 
-                // Salva i dati aggiornati
-                $player->fill($playerData)->save();
-
-                if ($player->wasChanged()) {
-                    $this->updatedCount++;
+                if (!empty($updateData)) {
+                    $player->update($updateData);
                 }
-
-                // Ripristina se era soft-deleted
+                
                 if ($player->trashed()) {
                     $player->restore();
-                    Log::info("TuttiSheetImport: Ripristinato '{$nome}' (ID DB: {$player->id}).");
                 }
-
-                // IMPORTANTE: restituiamo null per evitare che excel chiami
-                // save() di nuovo e generi una duplicate-key exception.
-                return null;
             }
 
-            // ── Record NUOVO: restituiamo l'istanza non salvata ───────────────
-            // maatwebsite/excel chiamerà save() nella sua transaction.
-            $this->createdCount++;
-            return new Player($playerData);
+            // ── 2. GESTIONE ROSTER STAGIONALE (PlayerSeasonRoster) ────────────────
+            $roster = \App\Models\PlayerSeasonRoster::updateOrCreate(
+                [
+                    'player_id' => $player->id,
+                    'season_id' => $this->seasonId,
+                ],
+                $rosterData
+            );
+
+            if ($roster->wasRecentlyCreated) {
+                Log::info("TuttiSheetImport: [ROSTER_CREATO] Roster per '{$nome}' (ID DB: {$player->id}) in Stagione {$this->seasonId} creato.");
+            } else if ($roster->wasChanged()) {
+                $this->updatedCount++;
+                Log::info("TuttiSheetImport: [ROSTER_AGGIORNATO] Roster per '{$nome}' (ID DB: {$player->id}) ha ricevuto aggiornamenti dati.");
+            } else {
+                Log::info("TuttiSheetImport: [ROSTER_INVARIATO] Roster per '{$nome}' già presente e dati identici.");
+            }
+
+            $this->processedPlayerIds[] = $player->id;
+
+            // Restituiamo null a Laravel-Excel perché abbiamo già salvato tutto manualmente.
+            return null;
 
         } catch (Throwable $exception) {
             Log::error('TuttiSheetImport: EXCEPTION per ' . $nome, [
@@ -195,4 +231,6 @@ class TuttiSheetImport implements ToModel, WithHeadingRow, SkipsOnError
     public function getProcessedCount(): int { return $this->processedCount; }
     public function getCreatedCount(): int   { return $this->createdCount;   }
     public function getUpdatedCount(): int   { return $this->updatedCount;   }
+    
+    public function getProcessedPlayerIds(): array { return $this->processedPlayerIds; }
 }

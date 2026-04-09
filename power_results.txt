@@ -1,0 +1,29 @@
+Avvio simulazione POWER FACTOR su 20 squadre...
+
+✅ RISULTATO OTTIMIZZAZIONE POWER FACTOR
+----------------------------------------
+Accuracy Massima: 55.00% (11/20)
+Soglie Ottimali: T1: 7.4 | T2: 9.4 | T3: 12.7 | T4: 14.4
+
+SQUADRA                   | TARGET     | PREVISTO        | SCORE
+----------------------------------------------------------------------
+FC Internazionale Milano  | T1         | T1              |  5.11 ✅
+SSC Napoli                | T1         | T1              |  6.83 ✅
+AC Milan                  | T1         | T2              |  8.04 ❌
+Como 1907                 | T1         | T3              | 10.90 ❌
+Juventus FC               | T1         | T2              |  7.90 ❌
+AS Roma                   | T2         | T2              |  8.30 ✅
+Atalanta BC               | T2         | T1              |  6.95 ❌
+Bologna FC 1909           | T2         | T2              |  9.23 ✅
+SS Lazio                  | T2         | T2              |  8.68 ✅
+US Sassuolo Calcio        | T3         | T2              |  9.31 ❌
+Udinese Calcio            | T3         | T3              | 12.35 ✅
+Torino FC                 | T3         | T3              | 11.57 ✅
+Parma Calcio 1913         | T3         | T3              | 11.68 ✅
+Genoa CFC                 | T3         | T3              | 11.84 ✅
+ACF Fiorentina            | T4         | T2              |  8.80 ❌
+Cagliari                  | T4         | T4              | 13.07 ✅
+US Cremonese              | T4         | T3              | 10.42 ❌
+US Lecce                  | T4         | T4              | 13.66 ✅
+Hellas Verona FC          | T5         | T4              | 13.52 ❌
+AC Pisa 1909              | T5         | T3              |  9.55 ❌

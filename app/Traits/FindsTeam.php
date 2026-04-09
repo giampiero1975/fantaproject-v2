@@ -51,7 +51,7 @@
          
          // --- LIVELLO 1: Corrispondenza Esatta con short_name ---
          Log::debug("[Team Finder] TENTATIVO LIVELLO 1: Ricerca per short_name esatto.");
-         $queryL1 = Team::whereNotNull('api_id')->whereRaw('LOWER(short_name) = ?', [$lowerTrimmedName]);
+         $queryL1 = Team::whereRaw('LOWER(short_name) = ?', [$lowerTrimmedName]);
          Log::debug("[Team Finder] SQL Livello 1: " . $queryL1->toSql() . " | Bindings: " . json_encode($queryL1->getBindings()));
          
          $team = $queryL1->first();
@@ -64,7 +64,7 @@
          
          // --- LIVELLO 2: Corrispondenza Esatta con il nome completo ---
          Log::debug("[Team Finder] TENTATIVO LIVELLO 2: Ricerca per nome completo esatto.");
-         $queryL2 = Team::whereNotNull('api_id')->whereRaw('LOWER(name) = ?', [$lowerTrimmedName]);
+         $queryL2 = Team::whereRaw('LOWER(name) = ?', [$lowerTrimmedName]);
          Log::debug("[Team Finder] SQL Livello 2: " . $queryL2->toSql() . " | Bindings: " . json_encode($queryL2->getBindings()));
          
          $team = $queryL2->first();
@@ -77,7 +77,7 @@
          
          // --- LIVELLO 3: Corrispondenza "Contains" ---
          Log::debug("[Team Finder] TENTATIVO LIVELLO 3: Ricerca per 'contains' su nome completo.");
-         $queryL3 = Team::whereNotNull('api_id')->where('name', 'LIKE', '%' . $trimmedName . '%');
+         $queryL3 = Team::where('name', 'LIKE', '%' . $trimmedName . '%');
          Log::debug("[Team Finder] SQL Livello 3: " . $queryL3->toSql() . " | Bindings: " . json_encode($queryL3->getBindings()));
          
          $team = $queryL3->first();

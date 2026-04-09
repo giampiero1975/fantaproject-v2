@@ -19,19 +19,27 @@ trait FindsPlayerByName
 
         // --- L1: Esatto + Team ---
         if ($team) {
-            $player = Player::withTrashed()->where('name', $name)->where('team_id', $team->id)->first();
+            $player = Player::withTrashed()
+                ->where('name', $name)
+                ->whereHas('rosters', fn($q) => $q->where('team_id', $team->id))
+                ->first();
             if ($player) return $player;
         }
 
         // --- L2: Case-insensitive + Team ---
         if ($team) {
-            $player = Player::withTrashed()->whereRaw('LOWER(name) = ?', [strtolower($name)])->where('team_id', $team->id)->first();
+            $player = Player::withTrashed()
+                ->whereRaw('LOWER(name) = ?', [strtolower($name)])
+                ->whereHas('rosters', fn($q) => $q->where('team_id', $team->id))
+                ->first();
             if ($player) return $player;
         }
 
         // --- L4: Algoritmo a Erosione Ibrida (In Stessa Squadra) ---
         if ($team) {
-            $teamPlayers = Player::withTrashed()->where('team_id', $team->id)->get();
+            $teamPlayers = Player::withTrashed()
+                ->whereHas('rosters', fn($q) => $q->where('team_id', $team->id))
+                ->get();
             foreach ($teamPlayers as $p) {
                 if ($this->namesAreSimilar($name, $p->name)) {
                     return $p;
@@ -41,7 +49,9 @@ trait FindsPlayerByName
 
         // --- L3: Case-insensitive Globale ---
         $query = Player::withTrashed()->whereRaw('LOWER(name) = ?', [strtolower($name)]);
-        if ($role) $query->where('role', $role);
+        if ($role) {
+            $query->whereHas('rosters', fn($q) => $q->where('role', $role));
+        }
         $player = $query->first();
         if ($player) return $player;
 

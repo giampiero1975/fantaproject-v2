@@ -18,9 +18,9 @@ class TeamHistoricalStandingResource extends Resource
     protected static ?string $model = TeamHistoricalStanding::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-calendar-days'; // Cambiamo icona per allinearla
-    protected static ?string $navigationLabel = '2. Storico Classifiche';
+    protected static ?string $navigationLabel = '3. Storico Classifiche';
     protected static ?string $navigationGroup = 'Setup Dati';
-    protected static ?int $navigationSort = 2;
+    protected static ?int $navigationSort = 3;
     
     public static function form(Form $form): Form
     {

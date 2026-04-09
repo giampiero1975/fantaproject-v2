@@ -50,7 +50,9 @@ class Team extends Model
 
     public function players()
     {
-        return $this->hasMany(Player::class);
+        return $this->belongsToMany(Player::class, 'player_season_roster', 'team_id', 'player_id')
+            ->withPivot(['season_id', 'role', 'detailed_position', 'initial_quotation', 'current_quotation', 'fvm'])
+            ->withTimestamps();
     }
     
     public function historicalStandings()

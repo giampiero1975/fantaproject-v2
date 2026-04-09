@@ -4,6 +4,8 @@ namespace App\Console\Commands\Extraction;
 
 use App\Models\ImportLog;
 use App\Models\Player;
+use App\Models\PlayerSeasonRoster;
+use App\Models\Season;
 use App\Models\Team;
 use App\Services\RoleNormalizationService;
 use App\Services\TeamDataService;
@@ -17,13 +19,13 @@ use Illuminate\Support\Str;
 class PlayersSyncFromActiveTeams extends Command
 {
     protected $signature = 'players:sync-from-active-teams
+                            {--season=      : Stagione YYYY da processare (es. 2025). Default: current + 2 precedenti}
                             {--player_name= : [DEBUG] Processa solo il giocatore con questo nome}
                             {--force        : Rielabora TUTTI i player, anche quelli già collegati all\'API}';
 
-    protected $description = 'Sincronizza le rose Serie A arricchendo i player con api_football_data_id, '
-                           . 'date_of_birth, detailed_position. [SAFE] Direttiva No-Delete: nessun record cancellato.';
+    protected $description = 'Sincronizza le rose Serie A arricchendo i player (Anagrafica + Roster) con api_id, parent_team e date_of_birth.';
 
-    protected TeamDataService         $teamDataService;
+    protected TeamDataService          $teamDataService;
     protected RoleNormalizationService $roleNormalizer;
     protected \Psr\Log\LoggerInterface $logger;
 
@@ -36,7 +38,6 @@ class PlayersSyncFromActiveTeams extends Command
 
     public function handle(): int
     {
-        // ── Logger dedicato ──────────────────────────────────────────────────
         $logDir  = storage_path('logs/Roster');
         $logPath = $logDir . '/RosterSync.log';
         if (!is_dir($logDir)) {
@@ -44,204 +45,135 @@ class PlayersSyncFromActiveTeams extends Command
         }
         $this->logger = Log::build(['driver' => 'single', 'path' => $logPath]);
         $this->logger->info('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-        $this->logger->info('🔄  AVVIO SINCRONIZZAZIONE ROSE API (Step 5)');
+        $this->logger->info('🔄  AVVIO SINCRONIZZAZIONE ROSE API (Step 7)');
         $this->logger->info('🕐  Ora: ' . now()->format('Y-m-d H:i:s'));
 
-        // ── Auto-season dal DB ───────────────────────────────────────────────
-        $season = (string) \App\Models\Season::where('is_current', true)->value('season_year');
+        // ── Determinazione Stagioni ──────────────────────────────────────────
+        $requestedSeason = $this->option('season');
+        $seasonsToProcess = [];
 
-        if (!$season) {
-            $this->error('Impossibile rilevare season_year da DB. Verifica che esista una Season is_current.');
+        if ($requestedSeason) {
+            $seasonModel = Season::where('season_year', $requestedSeason)->first();
+            if (!$seasonModel) {
+                $this->error("Stagione {$requestedSeason} non trovata a DB.");
+                return Command::FAILURE;
+            }
+            $seasonsToProcess[] = $seasonModel;
+        } else {
+            // Default: Current + 2 precedenti
+            $current = Season::where('is_current', true)->first();
+            if ($current) {
+                $seasonsToProcess = Season::where('season_year', '<=', $current->season_year)
+                    ->orderBy('season_year', 'desc')
+                    ->limit(3)
+                    ->get();
+            }
+        }
+
+        if (empty($seasonsToProcess)) {
+            $this->error('Nessuna stagione trovata da processare.');
             return Command::FAILURE;
         }
 
         $forceMode          = $this->option('force');
         $specificPlayerName = $this->option('player_name');
 
-        $this->logger->info("📅  Stagione auto-rilevata: {$season}" . ($forceMode ? ' [FORCE MODE]' : ''));
-        $this->info("▶️  Stagione: {$season}" . ($forceMode ? ' [FORCE: rielabora tutto]' : ' [solo NULL api_id]'));
-
-        if ($specificPlayerName) {
-            $this->warn("⚠️  MODALITÀ DEBUG: solo '{$specificPlayerName}'.");
-            $this->logger->warning("MODALITÀ DEBUG: filtro '{$specificPlayerName}'.");
+        foreach ($seasonsToProcess as $seasonModel) {
+            $this->syncSeason($seasonModel, $forceMode, $specificPlayerName);
         }
+
+        return Command::SUCCESS;
+    }
+
+    private function syncSeason(Season $seasonModel, bool $forceMode, ?string $specificPlayerName)
+    {
+        $season = $seasonModel->season_year;
+        $this->info("▶️  Elaborazione Stagione: {$season}");
+        $this->logger->info("📅  Stagione: {$season}" . ($forceMode ? ' [FORCE MODE]' : ''));
 
         // ── Apertura ImportLog ───────────────────────────────────────────────
         $importLog = ImportLog::create([
+            'season_id'          => $seasonModel->id,
             'import_type'        => 'sync_rose_api',
-            'original_file_name' => "sync_rose_{$season}" . ($forceMode ? '_force' : '') . ($specificPlayerName ? '_debug' : '') . ".api",
+            'original_file_name' => "sync_rose_{$season}.api",
             'status'             => 'in_corso',
-            'details'            => "Avvio. Stagione: {$season}." . ($forceMode ? ' [FORCE]' : ' [Solo NULL api_id]'),
+            'details'            => "In corso. Stagione: {$season}. Force=" . ($forceMode ? 'S' : 'N'),
         ]);
-        $this->logger->info("📋  ImportLog ID: {$importLog->id} creato (status: in_corso)");
 
-        // ── Recupero squadre ─────────────────────────────────────────────────
-        $activeTeams = Team::whereNotNull('api_id')->get();
+        // ── Recupero squadre della stagione ──────────────────────────────────
+        // Cerchiamo le squadre che hanno un api_id e che sono attive in questa stagione
+        $activeTeams = Team::whereNotNull('api_id')
+            ->whereHas('teamSeasons', function($q) use ($seasonModel) {
+                $q->where('season_id', $seasonModel->id)->where('is_active', true);
+            })->get();
 
         if ($activeTeams->isEmpty()) {
-            $this->logger->warning("Nessuna squadra con api_id trovata.");
+            $this->logger->warning("Nessuna squadra attiva con api_id trovata per {$season}.");
+            $importLog->update(['status' => 'fallito', 'details' => "Nessuna squadra trovata per {$season}."]);
+            return;
         }
-
-        if ($activeTeams->isEmpty()) {
-            $importLog->update(['status' => 'fallito', 'details' => 'Nessuna squadra trovata in DB.']);
-            return Command::FAILURE;
-        }
-
-        $this->logger->info("📋  {$activeTeams->count()} squadre caricate.");
-        $this->info("📋 {$activeTeams->count()} squadre.");
-
-        // ── Cache: reset progress ────────────────────────────────────────────
-        Cache::put('sync_rose_progress', [
-            'running'  => true,
-            'percent'  => 0,
-            'label'    => 'Avvio...',
-            'team'     => '',
-            'done'     => false,
-            'log_id'   => $importLog->id,
-        ], 600);
 
         // ── Contatori ────────────────────────────────────────────────────────
         $updatedCount   = 0;
         $createdCount   = 0;
-        $restoredCount  = 0;
         $processedCount = 0;
         $totalTeams     = $activeTeams->count();
 
         $this->getOutput()->progressStart($totalTeams);
 
         foreach ($activeTeams as $teamIndex => $team) {
+            // ── Cache Progress (per UI Filament) ──────────────────────────────
             $percent = (int) round(($teamIndex / $totalTeams) * 100);
-
-            // ── Avanzamento Cache (real-time) ─────────────────────────────────
             Cache::put('sync_rose_progress', [
-                'running'  => true,
-                'percent'  => $percent,
-                'label'    => "Elaborazione {$team->short_name} ({$teamIndex}/{$totalTeams})...",
-                'team'     => $team->short_name ?? $team->name,
-                'done'     => false,
-                'log_id'   => $importLog->id,
+                'running' => true,
+                'percent' => $percent,
+                'label'   => "Sync {$season}: {$team->short_name} ({$teamIndex}/{$totalTeams})",
+                'team'    => $team->short_name,
+                'done'    => false,
+                'log_id'  => $importLog->id,
             ], 600);
-
-            // ── Aggiornamento intermedio ImportLog ogni 5 squadre ────────────
-            if ($teamIndex > 0 && $teamIndex % 5 === 0) {
-                $importLog->update([
-                    'rows_processed' => $processedCount,
-                    'rows_created'   => $createdCount,
-                    'rows_updated'   => $updatedCount,
-                    'details'        => "In corso: {$teamIndex}/{$totalTeams} squadre. Ag={$updatedCount} Cr={$createdCount}.",
-                ]);
-            }
 
             $squadFromApi = $this->teamDataService->getSquad($team->api_id);
             if (empty($squadFromApi)) {
-                $this->logger->warning("Nessuna rosa API: '{$team->name}' (api_id={$team->api_id}).");
+                $this->logger->warning("Nessuna rosa API per {$team->name} (api_id={$team->api_id})");
                 $this->getOutput()->progressAdvance();
                 continue;
             }
 
-            $squadCount = count($squadFromApi);
-            $this->logger->info("Team '{$team->name}' → {$squadCount} giocatori API.");
-
             foreach ($squadFromApi as $playerData) {
                 if (empty($playerData['id']) || empty($playerData['name'])) continue;
 
-                // Filtro debug
-                if ($specificPlayerName) {
-                    if (stripos($this->getNormalizedStringForFilter($playerData['name']),
-                                $this->getNormalizedStringForFilter($specificPlayerName)) === false) continue;
-                }
-
-                // ── EFFICIENZA: salta player già collegati (a meno di --force) ─
-                if (!$forceMode) {
-                    $alreadyLinked = Player::where('api_football_data_id', $playerData['id'])->exists();
-                    if ($alreadyLinked) {
-                        $this->logger->debug("SKIP (già collegato): api_id={$playerData['id']} '{$playerData['name']}'.");
-                        continue;
-                    }
+                if ($specificPlayerName && stripos($this->getNormalizedStringForFilter($playerData['name']), $this->getNormalizedStringForFilter($specificPlayerName)) === false) {
+                    continue;
                 }
 
                 $processedCount++;
-                $this->logger->debug("→ '{$playerData['name']}' (api_id={$playerData['id']}) team='{$team->name}'");
+                
+                // 1. Matching del giocatore (Registry)
+                $player = $this->findPlayer($playerData, $team, $forceMode);
 
                 $rawApiRole      = ['position' => $playerData['position'] ?? null];
                 $normalizedRoles = $this->roleNormalizer->normalize($rawApiRole, 'football_data_api');
                 $playerMainRole  = $normalizedRoles['role_main'];
                 $apiDetailedPos  = $normalizedRoles['detailed_position'];
 
-                $player = $this->findPlayer($playerData, $team, $forceMode);
-
                 if ($player) {
-                    $wasTrashed = $player->trashed();
-                    if ($wasTrashed) {
-                        $player->restore();
-                        $restoredCount++;
-                        $this->logger->info("♻️  RIPRISTINATO: '{$player->name}' (ID DB: {$player->id}).");
-                    }
-
-                    $attrs = [
-                        'api_football_data_id' => $playerData['id'],
-                        'date_of_birth'        => isset($playerData['dateOfBirth'])
-                            ? Carbon::parse($playerData['dateOfBirth'])->format('Y-m-d')
-                            : $player->date_of_birth,
-                    ];
-
-                    // Ruolo: listone è fonte di verità
-                    if (empty($player->role) && $playerMainRole !== null) {
-                        $attrs['role'] = $playerMainRole;
-                    } elseif (!empty($player->role) && $playerMainRole && $player->role !== $playerMainRole) {
-                        $this->logger->warning("Ruolo incongruo '{$player->name}': DB={$player->role} vs API={$playerMainRole}. Mantenuto DB.");
-                    }
-
-                    // detailed_position: merge non-distruttivo
-                    $currentPos = $player->detailed_position ?? [];
-                    if (!empty($apiDetailedPos)) {
-                        if (!empty($currentPos)) {
-                            $merged = array_values(array_unique(array_merge($currentPos, $apiDetailedPos)));
-                            sort($merged);
-                            if ($merged !== $currentPos) $attrs['detailed_position'] = $merged;
-                        } else {
-                            $attrs['detailed_position'] = $apiDetailedPos;
-                        }
-                    }
-
-                    // Gestione prestiti
-                    if ($player->team_id !== $team->id) {
-                        $attrs['parent_team_id'] = $team->id;
-                        $this->logger->info("🔄 Prestito: '{$player->name}' → parent_team_id={$team->id}.");
-                    } else {
-                        $attrs['team_id']        = $team->id;
-                        $attrs['team_name']      = $team->short_name;
-                        $attrs['parent_team_id'] = null;
-                    }
-
-                    $player->update($attrs);
-                    if ($player->wasChanged()) {
-                        $updatedCount++;
-                        $this->logger->info("✅ AGGIORNATO: '{$player->name}' (ID DB: {$player->id}).");
-                    } else {
-                        $this->logger->debug("⭕ NESSUNA MODIFICA: '{$player->name}'.");
-                    }
-
+                    // Update Registry (players)
+                    $this->updateRegistry($player, $playerData, $team, $playerMainRole, $apiDetailedPos);
+                    
+                    // Update/Create Roster (player_season_roster)
+                    $this->updateRoster($player, $seasonModel, $team, $playerMainRole, $apiDetailedPos);
+                    
+                    $updatedCount++;
                 } else {
-                    // L4: nuovo da API
-                    Player::create([
-                        'api_football_data_id' => $playerData['id'],
-                        'name'                 => $playerData['name'],
-                        'date_of_birth'        => isset($playerData['dateOfBirth'])
-                            ? Carbon::parse($playerData['dateOfBirth'])->format('Y-m-d')
-                            : null,
-                        'role'                 => $playerMainRole,
-                        'detailed_position'    => $apiDetailedPos,
-                        'team_id'              => $team->id,
-                        'team_name'            => $team->short_name,
-                    ]);
+                    // L4: Creazione nuovo record (Registry + Roster)
+                    $this->createNewPlayer($playerData, $seasonModel, $team, $playerMainRole, $apiDetailedPos);
                     $createdCount++;
-                    $this->logger->info("✅ CREATO (L4): '{$playerData['name']}' | team='{$team->name}'.");
                 }
             }
 
             $this->getOutput()->progressAdvance();
-
+            // Delay per rispettare rate limit (standard 10 richieste/min = 6s)
             if (($teamIndex + 1) < $totalTeams) {
                 sleep(config('services.player_stats_api.providers.football_data_org.delay', 7));
             }
@@ -249,124 +181,135 @@ class PlayersSyncFromActiveTeams extends Command
 
         $this->getOutput()->progressFinish();
 
-        // ── Rilevamento orfani (No-Delete) ───────────────────────────────────
-        $orphansList = [];
-        if (!$specificPlayerName) {
-            $unmatched = Player::whereNotNull('fanta_platform_id')
-                ->whereNull('api_football_data_id')
-                ->whereNull('deleted_at')
-                ->get(['id', 'name', 'team_name', 'fanta_platform_id', 'role']);
-
-            foreach ($unmatched as $p) {
-                $msg = "[{$p->id}] {$p->name} | {$p->team_name} | {$p->role}";
-                $this->logger->warning("[NO-DELETE] Non matchato: {$msg}");
-                $orphansList[] = $msg;
-            }
-
-            $orphanCount = count($orphansList);
-            if ($orphanCount > 0) {
-                $this->warn("⚠️  {$orphanCount} orfani non matchati (No-Delete).");
-            } else {
-                $this->info("✅ Tutti i player del listone matchati.");
-                $this->logger->info("✅ Nessun orfano.");
-            }
-        }
-
-        // ── Chiusura ImportLog ───────────────────────────────────────────────
-        $orphanCount   = count($orphansList);
-        $orphanSummary = $orphanCount > 0
-            ? "Orfani: {$orphanCount}. Es.: " . implode(' | ', array_slice($orphansList, 0, 3)) . ($orphanCount > 3 ? '...' : '')
-            : 'Nessun orfano.';
-
         $importLog->update([
             'status'         => 'successo',
             'rows_processed' => $processedCount,
             'rows_created'   => $createdCount,
             'rows_updated'   => $updatedCount,
-            'details'        => "Stagione {$season}" . ($forceMode ? ' [FORCE]' : '') . ". Ag={$updatedCount}, Cr={$createdCount}, Rip={$restoredCount}. {$orphanSummary}",
+            'details'        => "Completato {$season}. Ag={$updatedCount}, Cr={$createdCount}.",
         ]);
 
-        $this->logger->info("📋  ImportLog #{$importLog->id} → successo");
-        $this->logger->info("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-        $this->logger->info("📊  Ag={$updatedCount} | Cr={$createdCount} | Rip={$restoredCount} | Orfani={$orphanCount}");
-        $this->logger->info("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-
-        // ── Cache: fine processo ─────────────────────────────────────────────
-        Cache::put('sync_rose_progress', [
-            'running'    => false,
-            'percent'    => 100,
-            'label'      => "Completato. Ag={$updatedCount} | Cr={$createdCount} | Orfani={$orphanCount}",
-            'team'       => '',
-            'done'       => true,
-            'log_id'     => $importLog->id,
-            'aggiornati' => $updatedCount,
-            'creati'     => $createdCount,
-            'orfani'     => $orphanCount,
-        ], 300);
-
-        // ── Output terminale ─────────────────────────────────────────────────
-        $this->newLine();
-        $this->info('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-        $this->info("📊 Riepilogo Stagione {$season}");
-        $this->info('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-        $this->info("  ✅ Aggiornati   : {$updatedCount}");
-        $this->info("  ✅ Creati (L4)  : {$createdCount}");
-        $this->info("  ♻️  Ripristinati : {$restoredCount}");
-        $this->info("  ⚠️  Orfani       : {$orphanCount}");
-        $this->info("  📋 Log ID       : #{$importLog->id}");
-        $this->info('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-
-        return Command::SUCCESS;
+        $this->info("✅ Stagione {$season} completata. Ag={$updatedCount}, Cr={$createdCount}.");
     }
-
-    // ════════════════════════════════════════════════════════════════════════
-    // MATCHING ENGINE — 4 Livelli
-    // ════════════════════════════════════════════════════════════════════════
 
     /**
-     * In modalità normale cerca solo tra player con api_football_data_id NULL.
-     * In --force mode cerca tra tutti (withTrashed incluso).
+     * Aggiorna l'anagrafica (Registry)
      */
-    private function findPlayer(array $playerData, Team $team, bool $forceMode = false): ?Player
+    private function updateRegistry(Player $player, array $playerData, Team $team, ?string $playerMainRole, ?array $apiDetailedPos)
     {
-        // L1: ID API già in DB
-        $player = Player::withTrashed()->where('api_football_data_id', $playerData['id'])->first();
-        if ($player) {
-            $this->logger->debug("L1 ✅ '{$player->name}' (DB id={$player->id}).");
-            return $player;
-        }
+        $attrs = [
+            'api_football_data_id' => $playerData['id'],
+            'date_of_birth'        => isset($playerData['dateOfBirth']) 
+                                      ? Carbon::parse($playerData['dateOfBirth'])->format('Y-m-d') 
+                                      : $player->date_of_birth,
+        ];
 
-        // Base query: in normal mode solo player senza api_id collegato
-        $baseQuery = Player::withTrashed()->whereNotNull('fanta_platform_id');
-        if (!$forceMode) {
-            $baseQuery = $baseQuery->whereNull('api_football_data_id');
-        }
-
-        // L2: Nome simile nello stesso team
-        $inTeam = (clone $baseQuery)->where('team_id', $team->id)->get();
-        foreach ($inTeam as $local) {
-            if ($this->namesAreSimilar($local->name, $playerData['name'])) {
-                $this->logger->debug("L2 ✅ '{$playerData['name']}' → '{$local->name}' (DB id={$local->id}).");
-                return $local;
+        // FBref ID extraction (se presente nell'URL)
+        if ($player->fbref_url && !$player->fbref_id) {
+            if (preg_match('/players\/([a-f0-9]+)/', $player->fbref_url, $matches)) {
+                $attrs['fbref_id'] = $matches[1];
             }
         }
 
-        // L3: Nome simile globale (trasferiti)
-        $all = $baseQuery->get();
-        foreach ($all as $local) {
-            if ($this->namesAreSimilar($local->name, $playerData['name'])) {
-                $this->logger->debug("L3 ✅ '{$playerData['name']}' → '{$local->name}' (era in {$local->team_name}).");
-                return $local;
-            }
+        // Detailed Position Merge
+        $currentPos = $player->detailed_position ?? [];
+        if (!empty($apiDetailedPos)) {
+            $merged = array_values(array_unique(array_merge($currentPos, $apiDetailedPos)));
+            sort($merged);
+            if ($merged !== $currentPos) $attrs['detailed_position'] = $merged;
         }
 
-        $this->logger->debug("L4: '{$playerData['name']}' → nuovo record.");
-        return null;
+        // Parent Team (Registry = Current Owner)
+        // Se il giocatore è in una squadra diversa da quella del listone (Registry team_id), 
+        // impostiamo questa come parent_team_id (Owner).
+        // Nota: questo è un trigger empirico dalla V1.
+        if ($player->getAttribute('team_id') && $player->getAttribute('team_id') != $team->id) {
+            $attrs['parent_team_id'] = $team->id;
+        }
+
+        $player->update($attrs);
     }
 
-    // ════════════════════════════════════════════════════════════════════════
-    // ALGORITMO DI SIMILARITÀ — Erosione Ibrida
-    // ════════════════════════════════════════════════════════════════════════
+    /**
+     * Aggiorna o crea il record stagionale (Roster)
+     */
+    private function updateRoster(Player $player, Season $season, Team $team, ?string $playerMainRole, ?array $apiDetailedPos)
+    {
+        $roster = PlayerSeasonRoster::firstOrNew([
+            'player_id' => $player->id,
+            'season_id' => $season->id,
+        ]);
+
+        // Se il roster non esiste (nuovo import listone), o se team_id è vuoto
+        if (!$roster->team_id) {
+            $roster->team_id = $team->id;
+        }
+
+        // Se il giocatore è trovato in una squadra diversa in questa stagione
+        if ($roster->team_id != $team->id) {
+            $roster->parent_team_id = $team->id;
+        }
+
+        // Detailed position stagionale
+        $currentPos = $roster->detailed_position ?? [];
+        if (!empty($apiDetailedPos)) {
+            $merged = array_values(array_unique(array_merge($currentPos, $apiDetailedPos)));
+            sort($merged);
+            $roster->detailed_position = $merged;
+        }
+        
+        if ($playerMainRole && !$roster->role) {
+            $roster->role = $playerMainRole;
+        }
+
+        $roster->save();
+    }
+
+    private function createNewPlayer(array $playerData, Season $season, Team $team, ?string $playerMainRole, ?array $apiDetailedPos)
+    {
+        $player = Player::create([
+            'api_football_data_id' => $playerData['id'],
+            'name'                 => $playerData['name'],
+            'date_of_birth'        => isset($playerData['dateOfBirth']) ? Carbon::parse($playerData['dateOfBirth'])->format('Y-m-d') : null,
+            'role'                 => $playerMainRole,
+            'detailed_position'    => $apiDetailedPos,
+        ]);
+
+        PlayerSeasonRoster::create([
+            'player_id'         => $player->id,
+            'season_id'         => $season->id,
+            'team_id'           => $team->id,
+            'role'              => $playerMainRole,
+            'detailed_position' => $apiDetailedPos,
+        ]);
+        
+        $this->logger->info("✅ CREATO (L4): '{$player->name}' | season={$season->season_year}");
+    }
+
+    private function findPlayer(array $playerData, Team $team, bool $forceMode = false): ?Player
+    {
+        $player = Player::withTrashed()->where('api_football_data_id', $playerData['id'])->first();
+        if ($player) return $player;
+
+        $baseQuery = Player::withTrashed()->whereNotNull('fanta_platform_id');
+        if (!$forceMode) $baseQuery = $baseQuery->whereNull('api_football_data_id');
+
+        // L2: Match locale
+        // Cerchiamo nel roster stagionale della squadra corrente
+        $rosterIds = PlayerSeasonRoster::where('team_id', $team->id)->pluck('player_id');
+        $localPlayers = (clone $baseQuery)->whereIn('id', $rosterIds)->get();
+        foreach ($localPlayers as $local) {
+            if ($this->namesAreSimilar($local->name, $playerData['name'])) return $local;
+        }
+
+        // L3: Match globale
+        $all = $baseQuery->get();
+        foreach ($all as $local) {
+            if ($this->namesAreSimilar($local->name, $playerData['name'])) return $local;
+        }
+
+        return null;
+    }
 
     private function namesAreSimilar(string $dbName, string $apiName): bool
     {
@@ -411,3 +354,4 @@ class PlayersSyncFromActiveTeams extends Command
         return Str::slug($name, ' ');
     }
 }
+
