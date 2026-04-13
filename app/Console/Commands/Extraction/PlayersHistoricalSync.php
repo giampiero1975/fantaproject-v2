@@ -133,6 +133,7 @@ class PlayersHistoricalSync extends Command
         $createdCount = 0;
         $errorCount   = 0;
         $apiFailCount = 0; // Contatore fallimenti 403
+        $matchedCount = 0; // Nuovo contatore per calciatori già allineati
         $totalTeams   = $activeTeams->count();
 
         // --- 🚀 [BULK LOAD] Recupero Massivo Rose ---
@@ -189,6 +190,7 @@ class PlayersHistoricalSync extends Command
                     $res = $this->matchAndSync($playerData, $seasonModel, $team, $localRoster, $threshold, $forceMode);
                     if ($res === 'updated') $updatedCount++;
                     elseif ($res === 'created') $createdCount++;
+                    elseif ($res === 'matched') $matchedCount++;
                 }
 
             } catch (\Exception $e) {
@@ -225,9 +227,9 @@ class PlayersHistoricalSync extends Command
 
         // Aggiorna log finale
         $finalStatus = 'successo';
-        $finalDetail = "[Stagione {$year}] Match: {$updatedCount}, Nuovi: {$createdCount}, Errori: {$errorCount}";
+        $finalDetail = "[Stagione {$year}] Aggiornati: {$updatedCount}, Creati: {$createdCount}, Errori: {$errorCount}. Processati " . ($updatedCount + $createdCount + $matchedCount) . " calciatori API.";
         
-        if ($apiFailCount > 0 && ($updatedCount + $createdCount) === 0) {
+        if ($apiFailCount > 0 && ($updatedCount + $createdCount + $matchedCount) === 0) {
             $finalStatus = ($apiFailCount === $totalTeams) ? 'errore' : 'parziale';
             $finalDetail .= " | API LIMIT: {$apiFailCount} squadre fallite (Piano limitato)";
         }
@@ -259,9 +261,9 @@ class PlayersHistoricalSync extends Command
         if ($player) {
             $this->syncLogger->info("  - [L1] Hit ID {$player->id}: '{$apiName}'");
             if ($player->trashed()) $player->restore();
-            $this->updateRegistry($player, $playerData, $apiDetailedPos, $season, $team);
-            $this->updateRoster($player, $season, $team, $playerMainRole, $apiDetailedPos);
-            return 'updated';
+            $c1 = $this->updateRegistry($player, $playerData, $apiDetailedPos, $season, $team);
+            $c2 = $this->updateRoster($player, $season, $team, $playerMainRole, $apiDetailedPos);
+            return ($c1 || $c2) ? 'updated' : 'matched';
         }
 
         // 2. L2: Match Locale per Nome (Stessa Squadra)
@@ -270,9 +272,9 @@ class PlayersHistoricalSync extends Command
             $player = Player::withTrashed()->find($match['player_id']);
             if ($player) {
                 $this->syncLogger->info("  - [L2] Match Nome: '{$apiName}' -> '{$match['local_name']}' (ID: {$player->id})");
-                $this->updateRegistry($player, $playerData, $apiDetailedPos, $season, $team);
-                $this->updateRoster($player, $season, $team, $playerMainRole, $apiDetailedPos);
-                return 'updated';
+                $c1 = $this->updateRegistry($player, $playerData, $apiDetailedPos, $season, $team);
+                $c2 = $this->updateRoster($player, $season, $team, $playerMainRole, $apiDetailedPos);
+                return ($c1 || $c2) ? 'updated' : 'matched';
             }
         }
 
@@ -282,9 +284,9 @@ class PlayersHistoricalSync extends Command
             $player = Player::withTrashed()->find($globalMatch['player_id']);
             if ($player) {
                 $this->syncLogger->info("  - [L3] Safe Global Match: '{$apiName}' -> '{$globalMatch['local_name']}' (ID: {$player->id}, Score: {$globalMatch['pct']}%)");
-                $this->updateRegistry($player, $playerData, $apiDetailedPos, $season, $team);
-                $this->updateRoster($player, $season, $team, $playerMainRole, $apiDetailedPos);
-                return 'updated';
+                $c1 = $this->updateRegistry($player, $playerData, $apiDetailedPos, $season, $team);
+                $c2 = $this->updateRoster($player, $season, $team, $playerMainRole, $apiDetailedPos);
+                return ($c1 || $c2) ? 'updated' : 'matched';
             }
         }
 
@@ -294,9 +296,9 @@ class PlayersHistoricalSync extends Command
         if ($safetyPlayer) {
             $this->syncLogger->warning("  - 🛡️ [L4 SAFETY] API ID {$apiId} trovato nel DB (ID {$safetyPlayer->id}). Evitato duplicato per '{$apiName}'.");
             if ($safetyPlayer->trashed()) $safetyPlayer->restore();
-            $this->updateRegistry($safetyPlayer, $playerData, $apiDetailedPos, $season, $team);
-            $this->updateRoster($safetyPlayer, $season, $team, $playerMainRole, $apiDetailedPos);
-            return 'updated';
+            $c1 = $this->updateRegistry($safetyPlayer, $playerData, $apiDetailedPos, $season, $team);
+            $c2 = $this->updateRoster($safetyPlayer, $season, $team, $playerMainRole, $apiDetailedPos);
+            return ($c1 || $c2) ? 'updated' : 'matched';
         }
 
         $this->syncLogger->warning("  - ⛔ [L4_REJECTED] Match Fallito per '{$apiName}'. Nessun calciatore nel database corrisponde con un punteggio >= {$threshold}%.");
@@ -374,7 +376,7 @@ class PlayersHistoricalSync extends Command
         return $bestMatch;
     }
 
-    private function updateRegistry(Player $player, array $playerData, ?array $apiDetailedPos, Season $season, Team $team)
+    private function updateRegistry(Player $player, array $playerData, ?array $apiDetailedPos, Season $season, Team $team): bool
     {
         $attrs = [
             'api_football_data_id' => $playerData['id'],
@@ -397,15 +399,45 @@ class PlayersHistoricalSync extends Command
             if ($merged !== $currentPos) $attrs['detailed_position'] = $merged;
         }
 
-        $player->update($attrs);
+        $player->fill($attrs);
+        $wasDirty = $player->isDirty();
+        $player->save();
+
+        return $wasDirty;
     }
 
-    private function updateRoster(Player $player, Season $season, Team $team, ?string $playerMainRole, ?array $apiDetailedPos)
+    private function updateRoster(Player $player, Season $season, Team $team, ?string $playerMainRole, ?array $apiDetailedPos): bool
     {
-        // Aggiorna o crea il record in player_season_roster per questa specifica stagione
-        $roster = PlayerSeasonRoster::firstOrNew([
+        // 1. Verifichiamo se il calciatore è già presente in QUALSIASI squadra per questa stagione
+        // (Spesso il Listone/Roster ha la priorità sulla squadra 'ufficiale' API per i prestiti)
+        $existingRoster = PlayerSeasonRoster::where('player_id', $player->id)
+            ->where('season_id', $season->id)
+            ->first();
+
+        if ($existingRoster && $existingRoster->team_id !== $team->id) {
+            // --- 🛡️ LOGICA PROPRIETÀ (CROSS-TEAM OWNERSHIP) ---
+            // Se lo troviamo nell'API di una squadra diversa da quella in cui gioca (DB), 
+            // allora questa squadra API è la PROPRIETÀ.
+            if ($existingRoster->parent_team_id !== $team->id) {
+                $existingRoster->parent_team_id = $team->id;
+                $existingRoster->save();
+
+                // Aggiorniamo anche il registro principale se non ha proprietà definita
+                if (!$player->parent_team_id) {
+                    $player->update(['parent_team_id' => $team->id]);
+                }
+
+                $this->syncLogger->info("    - 🛡️ [PROPERTY_LINK] {$player->name} (in {$existingRoster->team->short_name}) appartiene a {$team->short_name} via API.");
+                return true;
+            }
+            return false; // Esci: non vogliamo spostare il calciatore dalla sua squadra 'Listone'
+        }
+
+        // 2. Procediamo con il sync o creazione normale nel team corrente
+        $roster = $existingRoster ?? PlayerSeasonRoster::firstOrNew([
             'player_id' => $player->id,
             'season_id' => $season->id,
+            'team_id'   => $team->id,
         ]);
 
         if ($roster->exists && $roster->team_id !== $team->id) {
@@ -415,22 +447,6 @@ class PlayersHistoricalSync extends Command
 
         $roster->team_id = $team->id;
         
-        // --- 🛡️ LOGICA PROPRIETÀ (LOANS / TRANSFERS) ---
-        // Se il calciatore ha una squadra di proprietà definita nel registro, usiamola
-        if ($player->parent_team_id) {
-            $roster->parent_team_id = $player->parent_team_id;
-        } else {
-            // Altrimenti, verifichiamo se nella stagione precedente (season_id + 1) era in un'altra squadra
-            $prevRoster = \App\Models\PlayerSeasonRoster::where('player_id', $player->id)
-                ->where('season_id', $season->id + 1)
-                ->first();
-            
-            if ($prevRoster && $prevRoster->team_id !== $team->id) {
-                $roster->parent_team_id = $prevRoster->team_id;
-                $this->syncLogger->info("    - 🛡️ [PROPERTY_DETECTED] Rilevato prestito/proprietà da stagione precedente: Team ID {$prevRoster->team_id}");
-            }
-        }
-
         if ($playerMainRole && !$roster->role) {
             $roster->role = $playerMainRole;
         }
@@ -439,10 +455,18 @@ class PlayersHistoricalSync extends Command
         if (!empty($apiDetailedPos)) {
             $merged = array_values(array_unique(array_merge($currentPos, $apiDetailedPos)));
             sort($merged);
-            $roster->detailed_position = $merged;
+            if ($merged !== $currentPos) $roster->detailed_position = $merged;
         }
 
+        $roster->fill([
+            'team_id' => $team->id,
+            'role'    => $roster->role ?? $playerMainRole,
+        ]);
+
+        $wasDirty = $roster->isDirty();
         $roster->save();
+
+        return $wasDirty;
     }
 
     private function createNewPlayer(array $playerData, Season $season, Team $team, ?string $playerMainRole, ?array $apiDetailedPos)

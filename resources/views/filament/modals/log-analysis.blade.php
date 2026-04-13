@@ -57,23 +57,10 @@
             </tbody>
         </table>
 
-        {{-- Totali aggregati --}}
-        <div class="grid grid-cols-3 gap-3 pt-2 border-t border-gray-100 dark:border-gray-700">
-            <div class="rounded-lg bg-green-50 dark:bg-green-900/20 p-3 text-center">
-                <p class="text-xl font-bold text-green-700 dark:text-green-400">{{ $logs->sum('rows_updated') }}</p>
-                <p class="text-xs text-gray-500 mt-0.5">Tot. Aggiornati</p>
-            </div>
-            <div class="rounded-lg bg-blue-50 dark:bg-blue-900/20 p-3 text-center">
-                <p class="text-xl font-bold text-blue-700 dark:text-blue-400">{{ $logs->sum('rows_created') }}</p>
-                <p class="text-xs text-gray-500 mt-0.5">Tot. Creati (L4)</p>
-            </div>
-            <div class="rounded-lg bg-gray-50 dark:bg-gray-800 p-3 text-center">
-                <p class="text-xl font-bold text-gray-700 dark:text-gray-300">{{ $logs->count() }}</p>
-                <p class="text-xs text-gray-500 mt-0.5">Run registrati</p>
-            </div>
+        {{-- Footer informativo --}}
+        <div class="pt-4 border-t border-gray-100 dark:border-gray-700">
+            <p class="text-xs text-gray-400 text-right italic">Fonte: <code>import_logs</code> — Dettaglio delle ultime 10 operazioni individuali di sincronizzazione.</p>
         </div>
-
-        <p class="text-xs text-gray-400 text-right italic">Fonte: <code>import_logs</code> — Cronologia ultime 10 operazioni di sincronizzazione rose (Direct & Historical)</p>
     @endif
 
 </div>

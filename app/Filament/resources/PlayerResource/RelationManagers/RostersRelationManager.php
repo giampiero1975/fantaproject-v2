@@ -27,6 +27,11 @@ class RostersRelationManager extends RelationManager
                     ->label('Squadra')
                     ->badge()
                     ->color('gray')
+                    ->description(fn ($record) => 
+                        $record->parent_team_id && $record->parent_team_id !== $record->team_id
+                        ? "🛡️ Proprietà: " . ($record->parentTeam?->short_name ?? $record->parentTeam?->name)
+                        : null
+                    )
                     ->searchable(),
                 Tables\Columns\TextColumn::make('role')
                     ->label('Ruolo')
