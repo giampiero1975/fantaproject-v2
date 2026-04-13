@@ -415,6 +415,22 @@ class PlayersHistoricalSync extends Command
 
         $roster->team_id = $team->id;
         
+        // --- 🛡️ LOGICA PROPRIETÀ (LOANS / TRANSFERS) ---
+        // Se il calciatore ha una squadra di proprietà definita nel registro, usiamola
+        if ($player->parent_team_id) {
+            $roster->parent_team_id = $player->parent_team_id;
+        } else {
+            // Altrimenti, verifichiamo se nella stagione precedente (season_id + 1) era in un'altra squadra
+            $prevRoster = \App\Models\PlayerSeasonRoster::where('player_id', $player->id)
+                ->where('season_id', $season->id + 1)
+                ->first();
+            
+            if ($prevRoster && $prevRoster->team_id !== $team->id) {
+                $roster->parent_team_id = $prevRoster->team_id;
+                $this->syncLogger->info("    - 🛡️ [PROPERTY_DETECTED] Rilevato prestito/proprietà da stagione precedente: Team ID {$prevRoster->team_id}");
+            }
+        }
+
         if ($playerMainRole && !$roster->role) {
             $roster->role = $playerMainRole;
         }

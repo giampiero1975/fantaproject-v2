@@ -191,7 +191,7 @@ class SincronizzazioneRose extends Page implements HasTable
         return $table
             ->query(
                 PlayerSeasonRoster::query()
-                    ->with(['player', 'team', 'season'])
+                    ->with(['player', 'team', 'season', 'parentTeam'])
                     ->where('season_id', $this->selectedSeasonId)
                     ->whereHas('player', fn($q) => $q->whereNotNull('api_football_data_id'))
             )
@@ -207,7 +207,11 @@ class SincronizzazioneRose extends Page implements HasTable
                     ->label('Giocatore')
                     ->searchable()
                     ->sortable()
-                    ->description(fn ($record) => "ID: {$record->player_id}"),
+                    ->description(fn ($record) => 
+                        $record->parent_team_id && $record->parent_team_id !== $record->team_id
+                        ? "🛡️ Proprietà: " . ($record->parentTeam?->short_name ?? $record->parentTeam?->name)
+                        : "ID: {$record->player_id}"
+                    ),
                 TextColumn::make('player.api_football_data_id')
                     ->label('API ID')
                     ->copyable()
