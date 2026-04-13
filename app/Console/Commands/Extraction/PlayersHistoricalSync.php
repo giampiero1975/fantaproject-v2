@@ -17,10 +17,13 @@ use Illuminate\Support\Str;
 
 class PlayersHistoricalSync extends Command
 {
-    protected $signature = 'players:historical-sync
-                            {--season=      : Stagione specifica YYYY da processare (es. 2024). Default: tutte (2021-2025)}
-                            {--threshold=90 : Soglia di similitudine per il matching (default 90)}
-                            {--team=        : ID API o locale della squadra specifica per test mirati}
+    protected $signature = 'players:historical-sync 
+                            {--season= : L\'anno della stagione (es. 2021, 2022, 2023)} 
+                            {--team= : Nome o ID della squadra (opzionale)}
+                            {--threshold=78 : Soglia di similitudine minima per Match Globale (L3)}
+                            {--exclude-teams= : Lista di ID team da escludere (separati da virgola)}
+                            {--bulk : Esegue il recupero massivo delle rose via endpoint competizione (consigliato)}
+                            {--debug : Mostra log verbosi del matching}
                             {--force        : Riprocessa anche i calciatori già matchati}';
 
     protected $description = 'Sincronizzazione Multi-Stagione delle rose (API -> DB). Navigazione storica per risolvere i trasferimenti.';
@@ -132,20 +135,46 @@ class PlayersHistoricalSync extends Command
         $apiFailCount = 0; // Contatore fallimenti 403
         $totalTeams   = $activeTeams->count();
 
+        // --- 🚀 [BULK LOAD] Recupero Massivo Rose ---
+        $bulkSquads = [];
+        if ($this->option('bulk')) {
+            $this->info("🚀 [BULK_LOAD] Inizio caricamento massivo rose per la stagione {$year}...");
+            $bulkSquads = $this->teamDataService->getCompetitionSquads($year, 'SA');
+            if (!empty($bulkSquads)) {
+                $this->info("✅ [BULK_LOAD] Caricate rose per " . count($bulkSquads) . " squadre.");
+                $this->syncLogger->info("🚀 [BULK_LOAD] Caricate rose per " . count($bulkSquads) . " squadre via endpoint competizione.");
+            } else {
+                $this->warn("⚠️ [BULK_LOAD] Impossibile caricare rose in bulk. Il sistema userà le chiamate individuali.");
+            }
+        }
+
         $this->getOutput()->progressStart($totalTeams);
 
         foreach ($activeTeams as $index => $team) {
             $this->syncLogger->info("⚽ Processing {$team->name} [{$year}]");
 
+            // --- 🚫 ESCLUSIONE TEAM (403 Safeguard) ---
+            $excludeIds = $this->option('exclude-teams') ? explode(',', $this->option('exclude-teams')) : [];
+            if (in_array($team->id, $excludeIds)) {
+                $this->syncLogger->warning("  - ⏩ [SKIP] Team '{$team->name}' (ID: {$team->id}) escluso per opzione --exclude-teams.");
+                $this->getOutput()->progressAdvance();
+                continue;
+            }
+
             try {
-                // 1. FETCH dall'API con parametro temporale
-                $apiUrl = "https://api.football-data.org/v4/teams/{$team->api_id}?season={$year}";
-                $this->syncLogger->info("  - [API REQUEST] URL: {$apiUrl}");
-                
-                $squadFromApi = $this->teamDataService->getSquad($team->api_id, $year);
+                // 1. RECUPERO ROSA (Bulk o Individuale)
+                $squadFromApi = $bulkSquads[$team->api_id] ?? [];
                 
                 if (empty($squadFromApi)) {
-                    $this->syncLogger->warning("  - Rosa vuota da API.");
+                    $apiUrl = "https://api.football-data.org/v4/teams/{$team->api_id}?season={$year}";
+                    $this->syncLogger->info("  - [FALLBACK] ID '{$team->api_id}' non trovato in bulk o vuoto. Chiamata individuale: {$apiUrl}");
+                    $squadFromApi = $this->teamDataService->getSquad($team->api_id, $year);
+                } else {
+                    $this->syncLogger->info("  - [BULK_DATA] Utilizzo dati pre-caricati per '{$team->name}' (" . count($squadFromApi) . " giocatori).");
+                }
+                
+                if (empty($squadFromApi)) {
+                    $this->syncLogger->warning("  - [EMPTY] Rosa vuota da API (Individuale + Bulk falliti).");
                     $this->getOutput()->progressAdvance();
                     continue;
                 }
@@ -464,16 +493,36 @@ class PlayersHistoricalSync extends Command
             }
         }
 
-        return ($matches / $total) * 100;
+        $score = ($matches / $total) * 100;
+
+        // --- 🚀 BOOST SUBSTRING (Celik / Martinez L.) ---
+        $n1 = implode(' ', $tokens1);
+        $n2 = implode(' ', $tokens2);
+
+        if (str_contains($n1, $n2) || str_contains($n2, $n1)) {
+            $score += 20; // Bonus aggressivo per substring
+            if ($this->input && $this->option('debug')) {
+                $this->syncLogger->info("      ✨ [BOOST_SUBSTRING] Trovata corrispondenza parziale tra '{$name1}' e '{$name2}'. Boost +20%.");
+            }
+        }
+
+        return min(100, $score);
     }
 
     private function getNormalizedTokens(string $name): array
     {
-        // Normalizzazione aggressiva (inclusi accenti via Str::ascii)
+        // 1. Normalizzazione caratteri speciali e diacritici (Ç, Š, etc.)
         $n = Str::ascii(strtolower(trim($name)));
-        $n = str_replace(["'", '-'], ' ', $n);
+        
+        // 2. Pulizia punteggiatura comune nei nomi
+        $n = str_replace(["'", '-', ',', '`'], ' ', $n);
+        
+        // 3. Rimozione stop-words o titoli (opzionale, ma utile per certi match)
         $n = preg_replace('/[^a-z0-9\s\.]/', '', $n);
+        
+        // 4. Normalizzazione spazi
         $n = preg_replace('/\s+/', ' ', $n);
+        
         return array_values(array_filter(explode(' ', trim($n))));
     }
 }

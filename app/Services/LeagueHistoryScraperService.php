@@ -181,7 +181,7 @@ class LeagueHistoryScraperService
                     ],
                     [
                         'league_id' => $league->id,
-                        'is_active' => true,
+                        'is_active' => $seasonModel->isActuallyCurrent(),
                     ]
                 );
             }

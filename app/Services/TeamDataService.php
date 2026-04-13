@@ -414,28 +414,15 @@ class TeamDataService
 
     /**
      * Recupera la rosa di una squadra dall'API football-data.org.
-     * Endpoint: GET /v4/teams/{id}  →  field: squad[]
-     *
-     * @param  int $apiTeamId  Il valore di teams.api_id
-     * @param  int|null $season L'anno della stagione (es: 2024)
-     * @return array           Array di giocatori: [id, name, position, dateOfBirth, ...]
      */
     public function getSquad(int $apiTeamId, ?int $season = null): array
     {
         $apiKey = config('services.player_stats_api.providers.football_data_org.api_key');
-
-        if (empty($apiKey)) {
-            \Illuminate\Support\Facades\Log::error('TeamDataService::getSquad — FOOTBALL_DATA_API_KEY non configurata in .env');
-            return [];
-        }
+        if (empty($apiKey)) return [];
 
         $url = "https://api.football-data.org/v4/teams/{$apiTeamId}";
-        if ($season) {
-            $url .= "?season={$season}";
-        }
+        if ($season) $url .= "?season={$season}";
 
-        // Logga l'URL per permettere il debug manuale (Postman)
-        // Usiamo un log generico, il comando lo catturerà se configurato o lo vedremo nei log laravel
         \Illuminate\Support\Facades\Log::info("[API REQUEST] Squad URL: {$url}");
 
         try {
@@ -444,28 +431,47 @@ class TeamDataService
             ])->timeout(15)->get($url);
 
             if ($response->failed()) {
-                // Gestione specifica per il 403 Forbidden (limiti tier gratuito)
-                if ($response->status() === 403) {
-                     throw new \Exception("403_FORBIDDEN_TIER_LIMIT", 403);
-                }
-                
-                \Illuminate\Support\Facades\Log::warning(
-                    "TeamDataService::getSquad — HTTP {$response->status()} per teamId={$apiTeamId}"
-                );
+                if ($response->status() === 403) throw new \Exception("403_FORBIDDEN_TIER_LIMIT", 403);
                 return [];
             }
 
             $data = $response->json();
             return $data['squad'] ?? [];
-
         } catch (\Throwable $e) {
-            if ($e->getMessage() === "403_FORBIDDEN_TIER_LIMIT") {
-                throw $e;
-            }
+            if ($e->getMessage() === "403_FORBIDDEN_TIER_LIMIT") throw $e;
+            return [];
+        }
+    }
 
-            \Illuminate\Support\Facades\Log::error(
-                "TeamDataService::getSquad — Exception per teamId={$apiTeamId}: " . $e->getMessage()
-            );
+    /**
+     * Recupera TUTTE le rose di una competizione in un'unica chiamata.
+     */
+    public function getCompetitionSquads(int $season, string $leagueCode = 'SA'): array
+    {
+        $apiKey = config('services.player_stats_api.providers.football_data_org.api_key');
+        if (empty($apiKey)) return [];
+
+        $url = "https://api.football-data.org/v4/competitions/{$leagueCode}/teams?season={$season}";
+        \Illuminate\Support\Facades\Log::info("[API BULK REQUEST] URL: {$url}");
+
+        try {
+            $response = \Illuminate\Support\Facades\Http::withHeaders([
+                'X-Auth-Token' => $apiKey,
+            ])->timeout(25)->get($url);
+
+            if ($response->failed()) return [];
+
+            $data = $response->json();
+            $teams = $data['teams'] ?? [];
+            
+            $map = [];
+            foreach ($teams as $t) {
+                if (isset($t['id'])) {
+                    $map[$t['id']] = $t['squad'] ?? [];
+                }
+            }
+            return $map;
+        } catch (\Throwable $e) {
             return [];
         }
     }

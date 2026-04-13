@@ -231,7 +231,7 @@ class SeasonMonitorService
      */
     public function getHistoricalLookback(?int $count = null): array
     {
-        $count = $count ?? config('football.lookback_years', 4);
+        $count = (int) ($count ?? config('football.lookback_years', 4));
         $currentSeason = Season::where('is_current', true)->first();
         if (!$currentSeason) {
             return [
@@ -247,7 +247,7 @@ class SeasonMonitorService
 
         $currentYear = $currentSeason->season_year;
         $targetYears = [];
-        for ($i = 1; $i <= $count; $i++) {
+        for ($i = 0; $i <= $count; $i++) {
             $targetYears[] = $currentYear - $i;
         }
 
@@ -255,7 +255,10 @@ class SeasonMonitorService
         $readyCount = 0;
 
         foreach ($targetYears as $year) {
-            $season = Season::where('season_year', $year)->withCount('teams')->first();
+            $season = Season::where('season_year', $year)
+                ->withCount(['teams as teams_count' => function ($query) {
+                    $query->where('team_season.league_id', 1);
+                }])->first();
             $teamsCount = $season ? $season->teams_count : 0;
             $isComplete = $teamsCount >= 20;
 

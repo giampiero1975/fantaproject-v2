@@ -97,14 +97,17 @@ class Dashboard extends BaseDashboard
             ->latest()->first();
 
         // ── Stato per step (propedeutica) ───────────────────────────────────
+        $fbrefMissingCount = Team::whereIn('id', $teamIds)->whereNull('fbref_id')->count();
+        $fbrefMappedCount  = Team::whereIn('id', $teamIds)->whereNotNull('fbref_id')->count();
+        $apiMissingCount   = Team::whereIn('id', $teamIds)->whereNull('api_id')->count();
+        $apiMappedCount    = Team::whereIn('id', $teamIds)->whereNotNull('api_id')->count();
+
         $missingFbrefCount = Team::whereIn('id', $teamIds)
             ->where(function($query) {
                 $query->whereNull('fbref_url')->orWhere('fbref_url', '');
             })->count();
 
-        $teamTotalTable = Team::count();
-        $teamMappedTable = Team::whereNotNull('fbref_id')->where('fbref_id', '!=', '')->count();
-        $fbrefIncomplete = $teamMappedTable < $teamTotalTable;
+        $fbrefIncomplete = $fbrefMissingCount > 0;
 
         // ── Step 2: History ──────────────────────────────────────────────────
         $historyStats = TeamHistoricalStanding::select('season_year', DB::raw('count(*) as total'))
@@ -133,6 +136,20 @@ class Dashboard extends BaseDashboard
         $currentSeasonModel = Season::where('is_current', true)->first();
         $activeSeasonId = $currentSeasonModel ? $currentSeasonModel->id : 0;
 
+        // ── Step 1 (Nuovo): Gestione Stagioni (Lookback 4 anni) ────────────
+        $lookbackStatus = $monitorService->getHistoricalLookback();
+
+        // ── Step 0 (Nuovo): Proxy Status ────────────────────────────────────
+        $activeProxies = \App\Models\ProxyService::where('is_active', true)->get();
+        $totalRemaining = $activeProxies->sum(fn($p) => max(0, $p->limit_monthly - $p->current_usage));
+        $totalLimit = $activeProxies->sum('limit_monthly');
+        $percentageUsed = $totalLimit > 0 ? round(($activeProxies->sum('current_usage') / $totalLimit) * 100, 1) : 0;
+        $proxyStatus = [
+            'total_remaining' => $totalRemaining,
+            'percentage_used' => $percentageUsed,
+            'is_active' => $activeProxies->isNotEmpty()
+        ];
+
         // Squadre attive nella stagione corrente (via pivot)
         $teamsActiveCount = TeamSeason::where('season_id', $activeSeasonId)
             ->count();
@@ -140,11 +157,6 @@ class Dashboard extends BaseDashboard
         $teamsUniqueCount = Team::count(); // Master records unici
         $teamsTotalCount  = TeamSeason::count(); // Tutti gli snapshot storici
 
-        $apiMissingCount  = Team::whereNull('api_id')->count();
-        $apiMappedCount   = Team::whereNotNull('api_id')->count();
-
-        $fbrefMissingCount = Team::whereNull('fbref_id')->count();
-        $fbrefMappedCount  = Team::whereNotNull('fbref_id')->count();
 
         return compact(
             'targetSeason', 'seasonLabel', 'currentYear', 'lookback',
@@ -153,12 +165,13 @@ class Dashboard extends BaseDashboard
             'playerTotal', 'playerFanta', 'playerApi', 'playerOrphan', 'pct',
             'lastListone', 'lastSync',
             'step1Ok', 'step2Ok', 'step3Ok', 'step4Ok', 'step5Ok',
-            'missingFbrefCount', 'teamTotalTable', 'teamMappedTable', 'fbrefIncomplete',
+            'missingFbrefCount', 'fbrefIncomplete',
             'historyYears', 'coveringSeasonsCount', 'totalHistoricalRecords', 'missingHistoryYears',
-            'seasonStatus', 'seasonStatusLabel', 
+            'seasonStatus', 'seasonStatusLabel', 'currentSeasonModel',
             'teamsActiveCount', 'teamsUniqueCount', 'teamsTotalCount',
             'apiMissingCount', 'apiMappedCount', 
-            'fbrefMissingCount', 'fbrefMappedCount'
+            'fbrefMissingCount', 'fbrefMappedCount',
+            'lookbackStatus', 'proxyStatus'
         );
     }
 
@@ -193,7 +206,10 @@ class Dashboard extends BaseDashboard
     public function triggerSeasonSync()
     {
         try {
-            \Illuminate\Support\Facades\Artisan::call('football:sync-serie-a');
+            $targetSeason = SeasonHelper::getCurrentSeason();
+            \Illuminate\Support\Facades\Artisan::call('football:sync-serie-a', [
+                'season_year' => $targetSeason
+            ]);
             
             Notification::make()
                 ->title('Sincronizzazione Completata')
