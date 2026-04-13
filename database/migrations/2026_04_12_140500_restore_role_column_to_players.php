@@ -12,10 +12,8 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('players', function (Blueprint $table) {
-            $table->string('fbref_id')->nullable()->after('fbref_url')->index();
-            
-            if (!Schema::hasColumn('players', 'parent_team_id')) {
-                $table->foreignId('parent_team_id')->nullable()->after('api_football_data_id')->constrained('teams')->nullOnDelete();
+            if (!Schema::hasColumn('players', 'role')) {
+                $table->char('role', 1)->nullable()->after('name');
             }
         });
     }
@@ -26,8 +24,9 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('players', function (Blueprint $table) {
-            $table->dropForeign(['parent_team_id']);
-            $table->dropColumn(['fbref_id', 'parent_team_id']);
+            if (Schema::hasColumn('players', 'role')) {
+                $table->dropColumn('role');
+            }
         });
     }
 };

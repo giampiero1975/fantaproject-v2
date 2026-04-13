@@ -18,12 +18,22 @@ use Illuminate\Support\Str;
 
 class PlayersSyncFromActiveTeams extends Command
 {
+    /**
+     * The name and signature of the console command.
+     *
+     * @var string
+     */
     protected $signature = 'players:sync-from-active-teams
-                            {--season=      : Stagione YYYY da processare (es. 2025). Default: current + 2 precedenti}
-                            {--player_name= : [DEBUG] Processa solo il giocatore con questo nome}
-                            {--force        : Rielabora TUTTI i player, anche quelli già collegati all\'API}';
+                            {--season=      : Stagione YYYY da processare (es. 2025). Default: current}
+                            {--threshold=85 : Soglia di similitudine per il matching (default 85)}
+                            {--force        : Riprocessa anche i calciatori già matchati}';
 
-    protected $description = 'Sincronizza le rose Serie A arricchendo i player (Anagrafica + Roster) con api_id, parent_team e date_of_birth.';
+    /**
+     * The console command description.
+     *
+     * @var string
+     */
+    protected $description = 'Sincronizzazione Bottom-Up delle rose Serie A (API -> DB). Arricchisce i match e inserisce i nuovi (L4).';
 
     protected TeamDataService          $teamDataService;
     protected RoleNormalizationService $roleNormalizer;
@@ -38,6 +48,7 @@ class PlayersSyncFromActiveTeams extends Command
 
     public function handle(): int
     {
+        // ── Setup Logging ────────────────────────────────────────────────────
         $logDir  = storage_path('logs/Roster');
         $logPath = $logDir . '/RosterSync.log';
         if (!is_dir($logDir)) {
@@ -45,63 +56,48 @@ class PlayersSyncFromActiveTeams extends Command
         }
         $this->logger = Log::build(['driver' => 'single', 'path' => $logPath]);
         $this->logger->info('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-        $this->logger->info('🔄  AVVIO SINCRONIZZAZIONE ROSE API (Step 7)');
-        $this->logger->info('🕐  Ora: ' . now()->format('Y-m-d H:i:s'));
+        $this->logger->info('🔄 AVVIO SINCRONIZZAZIONE BOTTOM-UP (Step 7)');
+        $this->logger->info('🕐 Ora: ' . now()->format('Y-m-d H:i:s'));
 
         // ── Determinazione Stagioni ──────────────────────────────────────────
         $requestedSeason = $this->option('season');
-        $seasonsToProcess = [];
+        $seasonModel = null;
 
         if ($requestedSeason) {
             $seasonModel = Season::where('season_year', $requestedSeason)->first();
-            if (!$seasonModel) {
-                $this->error("Stagione {$requestedSeason} non trovata a DB.");
-                return Command::FAILURE;
-            }
-            $seasonsToProcess[] = $seasonModel;
         } else {
-            // Default: Current + 2 precedenti
-            $current = Season::where('is_current', true)->first();
-            if ($current) {
-                $seasonsToProcess = Season::where('season_year', '<=', $current->season_year)
-                    ->orderBy('season_year', 'desc')
-                    ->limit(3)
-                    ->get();
-            }
+            $seasonModel = Season::where('is_current', true)->first();
         }
 
-        if (empty($seasonsToProcess)) {
-            $this->error('Nessuna stagione trovata da processare.');
+        if (!$seasonModel) {
+            $this->error("Stagione non trovata o non configurata.");
             return Command::FAILURE;
         }
 
-        $forceMode          = $this->option('force');
-        $specificPlayerName = $this->option('player_name');
+        $threshold = (float) $this->option('threshold');
+        $forceMode = $this->option('force');
 
-        foreach ($seasonsToProcess as $seasonModel) {
-            $this->syncSeason($seasonModel, $forceMode, $specificPlayerName);
-        }
+        $this->syncSeason($seasonModel, $threshold, $forceMode);
 
         return Command::SUCCESS;
     }
 
-    private function syncSeason(Season $seasonModel, bool $forceMode, ?string $specificPlayerName)
+    private function syncSeason(Season $seasonModel, float $threshold, bool $forceMode)
     {
         $season = $seasonModel->season_year;
-        $this->info("▶️  Elaborazione Stagione: {$season}");
-        $this->logger->info("📅  Stagione: {$season}" . ($forceMode ? ' [FORCE MODE]' : ''));
+        $this->info("▶️ Elaborazione Stagione: {$season}");
+        $this->logger->info("📅 Stagione: {$season}" . ($forceMode ? ' [FORCE MODE]' : ''));
 
         // ── Apertura ImportLog ───────────────────────────────────────────────
         $importLog = ImportLog::create([
             'season_id'          => $seasonModel->id,
             'import_type'        => 'sync_rose_api',
-            'original_file_name' => "sync_rose_{$season}.api",
+            'original_file_name' => "sync_rose_bottom_up_{$season}",
             'status'             => 'in_corso',
-            'details'            => "In corso. Stagione: {$season}. Force=" . ($forceMode ? 'S' : 'N'),
+            'details'            => "In corso. Stagione: {$season}. Bottom-Up Threshold={$threshold}",
         ]);
 
         // ── Recupero squadre della stagione ──────────────────────────────────
-        // Cerchiamo le squadre che hanno un api_id e che sono attive in questa stagione
         $activeTeams = Team::whereNotNull('api_id')
             ->whereHas('teamSeasons', function($q) use ($seasonModel) {
                 $q->where('season_id', $seasonModel->id)->where('is_active', true);
@@ -113,7 +109,6 @@ class PlayersSyncFromActiveTeams extends Command
             return;
         }
 
-        // ── Contatori ────────────────────────────────────────────────────────
         $updatedCount   = 0;
         $createdCount   = 0;
         $processedCount = 0;
@@ -122,7 +117,6 @@ class PlayersSyncFromActiveTeams extends Command
         $this->getOutput()->progressStart($totalTeams);
 
         foreach ($activeTeams as $teamIndex => $team) {
-            // ── Cache Progress (per UI Filament) ──────────────────────────────
             $percent = (int) round(($teamIndex / $totalTeams) * 100);
             Cache::put('sync_rose_progress', [
                 'running' => true,
@@ -133,6 +127,7 @@ class PlayersSyncFromActiveTeams extends Command
                 'log_id'  => $importLog->id,
             ], 600);
 
+            // 1. FETCH: Rosa ufficiale da API
             $squadFromApi = $this->teamDataService->getSquad($team->api_id);
             if (empty($squadFromApi)) {
                 $this->logger->warning("Nessuna rosa API per {$team->name} (api_id={$team->api_id})");
@@ -140,40 +135,60 @@ class PlayersSyncFromActiveTeams extends Command
                 continue;
             }
 
+            // 2. RECUPERO ROSTER LOCALE (Listone)
+            $localRoster = PlayerSeasonRoster::with('player')
+                ->where('team_id', $team->id)
+                ->where('season_id', $seasonModel->id)
+                ->get();
+
             foreach ($squadFromApi as $playerData) {
                 if (empty($playerData['id']) || empty($playerData['name'])) continue;
 
-                if ($specificPlayerName && stripos($this->getNormalizedStringForFilter($playerData['name']), $this->getNormalizedStringForFilter($specificPlayerName)) === false) {
-                    continue;
-                }
-
                 $processedCount++;
-                
-                // 1. Matching del giocatore (Registry)
-                $player = $this->findPlayer($playerData, $team, $forceMode);
+                $apiName = $playerData['name'];
+
+                // 3. MATCH (Bottom-Up circoscritto a Squadra/Stagione)
+                $match = $this->findLocalMatch($apiName, $localRoster, $threshold);
 
                 $rawApiRole      = ['position' => $playerData['position'] ?? null];
                 $normalizedRoles = $this->roleNormalizer->normalize($rawApiRole, 'football_data_api');
                 $playerMainRole  = $normalizedRoles['role_main'];
                 $apiDetailedPos  = $normalizedRoles['detailed_position'];
 
+                $apiId   = $playerData['id'];
+                $apiName = $playerData['name'];
+
+                // 1. PRIORITÀ ASSOLUTA: ID API Globale (Registry Truth)
+                $player = Player::withTrashed()->where('api_football_data_id', $apiId)->first();
+                
                 if ($player) {
-                    // Update Registry (players)
-                    $this->updateRegistry($player, $playerData, $team, $playerMainRole, $apiDetailedPos);
-                    
-                    // Update/Create Roster (player_season_roster)
-                    $this->updateRoster($player, $seasonModel, $team, $playerMainRole, $apiDetailedPos);
-                    
+                    if ($player->trashed()) {
+                        $this->logger->info("♻️ RESTORE: '{$apiName}' (ID: {$apiId}) era cancellato. Ripristino.");
+                        $player->restore();
+                    }
+                    $this->updateRegistry($player, $playerData, $apiDetailedPos);
+                    $this->updateRosterForNewTeam($player, $seasonModel, $team, $playerMainRole, $apiDetailedPos);
                     $updatedCount++;
                 } else {
-                    // L4: Creazione nuovo record (Registry + Roster)
-                    $this->createNewPlayer($playerData, $seasonModel, $team, $playerMainRole, $apiDetailedPos);
-                    $createdCount++;
+                    // 2. PRIORITÀ SECONDARIA: Match Locale per Nome (Rescue from Listone)
+                    $match = $this->findLocalMatch($apiName, $localRoster, $threshold);
+                    
+                    if ($match) {
+                        $player = Player::find($match['player_id']);
+                        $this->logger->info("🤝 MATCH LOCALE: '{$apiName}' associato a giocatore locale '{$match['local_name']}' (ID: {$player->id})");
+                        $this->updateRegistry($player, $playerData, $apiDetailedPos);
+                        $this->updateRoster($player, $seasonModel, $team, $playerMainRole, $apiDetailedPos);
+                        $updatedCount++;
+                    } else {
+                        // 3. INSERT (NEW L4): Nessuna traccia globale o locale
+                        $this->createNewPlayer($playerData, $seasonModel, $team, $playerMainRole, $apiDetailedPos);
+                        $createdCount++;
+                    }
                 }
             }
 
             $this->getOutput()->progressAdvance();
-            // Delay per rispettare rate limit (standard 10 richieste/min = 6s)
+            // Rate limit delay
             if (($teamIndex + 1) < $totalTeams) {
                 sleep(config('services.player_stats_api.providers.football_data_org.delay', 7));
             }
@@ -186,16 +201,42 @@ class PlayersSyncFromActiveTeams extends Command
             'rows_processed' => $processedCount,
             'rows_created'   => $createdCount,
             'rows_updated'   => $updatedCount,
-            'details'        => "Completato {$season}. Ag={$updatedCount}, Cr={$createdCount}.",
+            'details'        => "Completato Bottom-Up {$season}. Match={$updatedCount}, New={$createdCount}.",
         ]);
 
-        $this->info("✅ Stagione {$season} completata. Ag={$updatedCount}, Cr={$createdCount}.");
+        $this->info("✅ Stagione {$season} completata. Match={$updatedCount}, New={$createdCount}.");
+        $this->logger->info("🏁 FINE: Match={$updatedCount}, New={$createdCount}.");
     }
 
-    /**
-     * Aggiorna l'anagrafica (Registry)
-     */
-    private function updateRegistry(Player $player, array $playerData, Team $team, ?string $playerMainRole, ?array $apiDetailedPos)
+    private function findLocalMatch(string $apiName, $localRoster, float $threshold): ?array
+    {
+        // Prima cerchiamo match esatto per ID API se già presente nel Roster
+        // (Copertura per reload o ri-esecuzioni)
+        // [Omesso qui per attenersi strettamente al match testato nel Dry Run, ma implementabile]
+
+        $bestMatch = null;
+        $maxPct    = 0;
+
+        foreach ($localRoster as $item) {
+            if (!$item->player) continue;
+
+            $dbName = $item->player->name;
+            $pct = $this->calculateSimilarity($dbName, $apiName);
+
+            if ($pct >= $threshold && $pct > $maxPct) {
+                $maxPct = $pct;
+                $bestMatch = [
+                    'local_name' => $dbName,
+                    'player_id'  => $item->player_id,
+                    'pct'        => round($pct, 1),
+                ];
+            }
+        }
+
+        return $bestMatch;
+    }
+
+    private function updateRegistry(Player $player, array $playerData, ?array $apiDetailedPos)
     {
         $attrs = [
             'api_football_data_id' => $playerData['id'],
@@ -204,7 +245,7 @@ class PlayersSyncFromActiveTeams extends Command
                                       : $player->date_of_birth,
         ];
 
-        // FBref ID extraction (se presente nell'URL)
+        // FBref ID extraction
         if ($player->fbref_url && !$player->fbref_id) {
             if (preg_match('/players\/([a-f0-9]+)/', $player->fbref_url, $matches)) {
                 $attrs['fbref_id'] = $matches[1];
@@ -219,35 +260,18 @@ class PlayersSyncFromActiveTeams extends Command
             if ($merged !== $currentPos) $attrs['detailed_position'] = $merged;
         }
 
-        // Parent Team (Registry = Current Owner)
-        // Se il giocatore è in una squadra diversa da quella del listone (Registry team_id), 
-        // impostiamo questa come parent_team_id (Owner).
-        // Nota: questo è un trigger empirico dalla V1.
-        if ($player->getAttribute('team_id') && $player->getAttribute('team_id') != $team->id) {
-            $attrs['parent_team_id'] = $team->id;
-        }
-
         $player->update($attrs);
     }
 
-    /**
-     * Aggiorna o crea il record stagionale (Roster)
-     */
-    private function updateRoster(Player $player, Season $season, Team $team, ?string $playerMainRole, ?array $apiDetailedPos)
+    private function updateRosterForNewTeam(Player $player, Season $season, Team $team, ?string $playerMainRole, ?array $apiDetailedPos)
     {
         $roster = PlayerSeasonRoster::firstOrNew([
             'player_id' => $player->id,
             'season_id' => $season->id,
         ]);
 
-        // Se il roster non esiste (nuovo import listone), o se team_id è vuoto
         if (!$roster->team_id) {
             $roster->team_id = $team->id;
-        }
-
-        // Se il giocatore è trovato in una squadra diversa in questa stagione
-        if ($roster->team_id != $team->id) {
-            $roster->parent_team_id = $team->id;
         }
 
         // Detailed position stagionale
@@ -258,6 +282,30 @@ class PlayersSyncFromActiveTeams extends Command
             $roster->detailed_position = $merged;
         }
         
+        if ($playerMainRole && !$roster->role) {
+            $roster->role = $playerMainRole;
+        }
+
+        $roster->save();
+    }
+
+    private function updateRoster(Player $player, Season $season, Team $team, ?string $playerMainRole, ?array $apiDetailedPos)
+    {
+        $roster = PlayerSeasonRoster::where('player_id', $player->id)
+            ->where('season_id', $season->id)
+            ->first();
+
+        if (!$roster) return;
+
+        // Detailed position stagionale
+        $currentPos = $roster->detailed_position ?? [];
+        if (!empty($apiDetailedPos)) {
+            $merged = array_values(array_unique(array_merge($currentPos, $apiDetailedPos)));
+            sort($merged);
+            $roster->detailed_position = $merged;
+        }
+        
+        // Se non abbiamo un ruolo fanta e l'API ci dà un ruolo, lo prendiamo come base
         if ($playerMainRole && !$roster->role) {
             $roster->role = $playerMainRole;
         }
@@ -281,63 +329,53 @@ class PlayersSyncFromActiveTeams extends Command
             'team_id'           => $team->id,
             'role'              => $playerMainRole,
             'detailed_position' => $apiDetailedPos,
+            'initial_quotation' => 0,
+            'fanta_quotation'   => 0,
+            'fvm'               => 0,
         ]);
         
-        $this->logger->info("✅ CREATO (L4): '{$player->name}' | season={$season->season_year}");
+        $this->logger->info("✅ CREATO (L4): '{$player->name}' | season={$season->season_year} | team={$team->name}");
     }
 
-    private function findPlayer(array $playerData, Team $team, bool $forceMode = false): ?Player
-    {
-        $player = Player::withTrashed()->where('api_football_data_id', $playerData['id'])->first();
-        if ($player) return $player;
-
-        $baseQuery = Player::withTrashed()->whereNotNull('fanta_platform_id');
-        if (!$forceMode) $baseQuery = $baseQuery->whereNull('api_football_data_id');
-
-        // L2: Match locale
-        // Cerchiamo nel roster stagionale della squadra corrente
-        $rosterIds = PlayerSeasonRoster::where('team_id', $team->id)->pluck('player_id');
-        $localPlayers = (clone $baseQuery)->whereIn('id', $rosterIds)->get();
-        foreach ($localPlayers as $local) {
-            if ($this->namesAreSimilar($local->name, $playerData['name'])) return $local;
-        }
-
-        // L3: Match globale
-        $all = $baseQuery->get();
-        foreach ($all as $local) {
-            if ($this->namesAreSimilar($local->name, $playerData['name'])) return $local;
-        }
-
-        return null;
-    }
-
-    private function namesAreSimilar(string $dbName, string $apiName): bool
+    private function calculateSimilarity(string $dbName, string $apiName): float
     {
         $dbTokens  = $this->getNormalizedTokens($dbName);
         $apiTokens = $this->getNormalizedTokens($apiName);
-        if (empty($dbTokens) || empty($apiTokens)) return false;
+        if (empty($dbTokens) || empty($apiTokens)) return 0;
 
+        $matches = 0;
         $shortSet = count($dbTokens) <= count($apiTokens) ? $dbTokens : $apiTokens;
         $longCopy = $shortSet === $dbTokens ? $apiTokens : $dbTokens;
+        $total    = count($shortSet);
 
         foreach ($shortSet as $token) {
-            $bestIdx = -1;
+            reset($longCopy);
+            $found = false;
             foreach ($longCopy as $k => $candidate) {
                 if ($token === $candidate || (Str::endsWith($token, '.') && str_starts_with($candidate, rtrim($token, '.')))) {
-                    $bestIdx = $k; break;
+                    $matches++;
+                    unset($longCopy[$k]);
+                    $found = true;
+                    break;
                 }
             }
-            if ($bestIdx === -1) {
-                $best = 0;
+            if (!$found) {
+                $bestFuzzy = 0;
+                $bestK = -1;
                 foreach ($longCopy as $k => $candidate) {
                     similar_text($token, $candidate, $pct);
-                    if ($pct > 85 && $pct > $best) { $best = $pct; $bestIdx = $k; }
+                    if ($pct > 80 && $pct > $bestFuzzy) {
+                        $bestFuzzy = $pct;
+                        $bestK = $k;
+                    }
+                }
+                if ($bestK !== -1) {
+                    $matches += ($bestFuzzy / 100);
+                    unset($longCopy[$bestK]);
                 }
             }
-            if ($bestIdx === -1) return false;
-            unset($longCopy[$bestIdx]);
         }
-        return true;
+        return ($matches / $total) * 100;
     }
 
     private function getNormalizedTokens(string $name): array
@@ -348,10 +386,4 @@ class PlayersSyncFromActiveTeams extends Command
         $n = preg_replace('/\s+/', ' ', $n);
         return array_values(array_filter(explode(' ', trim($n))));
     }
-
-    private function getNormalizedStringForFilter(string $name): string
-    {
-        return Str::slug($name, ' ');
-    }
 }
-

@@ -2,19 +2,30 @@
 
 namespace App\Filament\Pages;
 
+use App\Models\ImportLog;
 use App\Models\Player;
+use App\Models\PlayerSeasonRoster;
+use App\Models\Season;
 use App\Models\Team;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
+use Filament\Tables\Columns\ImageColumn;
+use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Concerns\InteractsWithTable;
+use Filament\Tables\Contracts\HasTable;
+use Filament\Tables\Filters\SelectFilter;
+use Filament\Tables\Table;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Throwable;
 
-class SincronizzazioneRose extends Page
+class SincronizzazioneRose extends Page implements HasTable
 {
+    use InteractsWithTable;
+
     protected static ?string $navigationIcon  = 'heroicon-o-arrow-path';
     protected static ?string $navigationLabel = '7. Sincronizzazione Rose';
     protected static ?string $navigationGroup = 'Setup Dati';
@@ -23,6 +34,56 @@ class SincronizzazioneRose extends Page
     protected static string  $view            = 'filament.pages.sincronizzazione-rose';
     protected static ?string $slug            = 'sincronizzazione-rose';
 
+    public ?int $selectedSeasonId = null;
+    public $lookbackStatus        = null;
+
+    public function mount(): void
+    {
+        if (!$this->selectedSeasonId) {
+            $this->selectedSeasonId = Season::where('is_current', true)->first()?->id ?? Season::latest('season_year')->first()?->id;
+        }
+        $this->computeLookback();
+    }
+
+    public function computeLookback(): void
+    {
+        $status = app(\App\Services\SeasonMonitorService::class)->getHistoricalLookback();
+        
+        // Arricchiamo ogni anno con le statistiche di copertura
+        if (isset($status['years'])) {
+            foreach ($status['years'] as &$yearData) {
+                // Cerchiamo l'ID della stagione per l'anno di riferimento
+                $season = Season::where('season_year', $yearData['year'])->first();
+                if (!$season) continue;
+
+                $sId = $season->id;
+                $total   = PlayerSeasonRoster::where('season_id', $sId)->count();
+                $matched = PlayerSeasonRoster::where('season_id', $sId)
+                    ->whereHas('player', fn($q) => $q->whereNotNull('api_football_data_id'))
+                    ->count();
+                    
+                $l4Count = PlayerSeasonRoster::where('season_id', $sId)
+                    ->whereHas('player', fn($q) => $q->whereNull('fanta_platform_id'))
+                    ->count();
+
+                $isSynced = \App\Models\ImportLog::where('import_type', 'sync_rose_api_historical')
+                    ->where('season_id', $sId)
+                    ->where('status', 'successo')
+                    ->exists();
+
+                $yearData['stats'] = [
+                    'total'     => $total,
+                    'matched'   => $matched,
+                    'pct'       => $total > 0 ? round($matched / $total * 100, 1) : 0.0,
+                    'l4'        => $l4Count,
+                    'is_synced' => $isSynced,
+                ];
+            }
+        }
+
+        $this->lookbackStatus = $status;
+    }
+
     // ── Header Actions ────────────────────────────────────────────────────────
 
     protected function getHeaderActions(): array
@@ -30,23 +91,54 @@ class SincronizzazioneRose extends Page
         return [
             // ── Sincronizza Rose API ──────────────────────────────────────────
             // ── Sincronizza Rose API ──────────────────────────────────────────
-            Action::make('syncApiData')
-                ->label('1. Sync API Football')
+            Action::make('syncHistoricalSeason')
+                ->label('1. Sincronizzazione Storica')
                 ->icon('heroicon-o-arrow-path')
                 ->color('warning')
                 ->requiresConfirmation()
-                ->modalHeading('Sincronizza Rose Serie A (API)')
+                ->modalHeading(fn() => "Sincronizza Rose " . Season::find($this->selectedSeasonId)?->season_year)
                 ->modalDescription(
-                    'Interroga football-data.org per arricchire i player con api_id, proprietá (parent_team) e date_of_birth. '
-                    . 'Sincronizza automaticamente le ultime 3 stagioni (Pregresso).'
+                    'Interroga l\'API per la stagione selezionata. '
+                    . 'Questo aggiorner api_id e propriet storiche nel roster.'
                 )
                 ->action(function (): void {
+                    $year = Season::find($this->selectedSeasonId)?->season_year;
+                    if (!$year) return;
+
                     set_time_limit(600);
-                    Notification::make()->title('⏳ Sync API avviato...')->body('Processo triennale in corso. Monitora la barra progressi.')->warning()->send();
+                    Notification::make()->title("⏳ Sync {$year} avviato...")
+                        ->body('Processo stagionale in corso. Monitora la barra progressi.')
+                        ->warning()->send();
 
                     try {
-                        Artisan::call('players:sync-from-active-teams');
-                        Notification::make()->title('✅ Sync API completato!')->success()->send();
+                        Artisan::call('players:historical-sync', ['--season' => $year]);
+                        $this->computeLookback(); // Rinfresca il widget dopo la sync
+                        
+                        // Recuperiamo l'esito dal log appena scritto
+                        $lastLog = \App\Models\ImportLog::where('import_type', 'sync_rose_api_historical')
+                            ->where('season_id', $this->selectedSeasonId)
+                            ->latest()
+                            ->first();
+
+                        if ($lastLog && ($lastLog->status === 'errore' || $lastLog->status === 'fallito')) {
+                            Notification::make()
+                                ->title("❌ Sync {$year} Fallito")
+                                ->body($lastLog->details)
+                                ->danger()
+                                ->persistent()
+                                ->send();
+                        } elseif ($lastLog && $lastLog->status === 'parziale') {
+                            Notification::make()
+                                ->title("⚠️ Sync {$year} Parziale")
+                                ->body($lastLog->details)
+                                ->warning()
+                                ->send();
+                        } else {
+                            Notification::make()
+                                ->title("✅ Sync {$year} completato!")
+                                ->success()
+                                ->send();
+                        }
                     } catch (Throwable $e) {
                         Notification::make()->title('Errore API')->body($e->getMessage())->danger()->send();
                     }
@@ -81,13 +173,84 @@ class SincronizzazioneRose extends Page
                 ->modalSubmitActionLabel('Chiudi')
                 ->action(fn () => null)
                 ->modalContent(function () {
-                    $logs = \App\Models\ImportLog::where('import_type', 'sync_rose_api')
+                    $logs = \App\Models\ImportLog::with('season')
+                        ->whereIn('import_type', ['sync_rose_api', 'sync_rose_api_historical'])
                         ->latest()
                         ->limit(10)
                         ->get();
 
                     return view('filament.modals.log-analysis', compact('logs'));
                 }),
+        ];
+    }
+
+    // ── Configuration Tabella (HasTable) ─────────────────────────────────────
+
+    public function table(Table $table): Table
+    {
+        return $table
+            ->query(
+                PlayerSeasonRoster::query()
+                    ->with(['player', 'team', 'season'])
+                    ->where('season_id', $this->selectedSeasonId)
+                    ->whereHas('player', fn($q) => $q->whereNotNull('api_football_data_id'))
+            )
+            ->columns([
+                ImageColumn::make('team.logo_url')
+                    ->label('Logo')
+                    ->circular(),
+                TextColumn::make('team.short_name')
+                    ->label('Squadra')
+                    ->searchable()
+                    ->sortable(),
+                TextColumn::make('player.name')
+                    ->label('Giocatore')
+                    ->searchable()
+                    ->sortable()
+                    ->description(fn ($record) => "ID: {$record->player_id}"),
+                TextColumn::make('player.api_football_data_id')
+                    ->label('API ID')
+                    ->copyable()
+                    ->sortable(),
+                TextColumn::make('role')
+                    ->label('Ruolo')
+                    ->badge()
+                    ->color(fn (string $state): string => match ($state) {
+                        'P' => 'warning',
+                        'D' => 'success',
+                        'C' => 'info',
+                        'A' => 'danger',
+                        default => 'gray',
+                    }),
+            ])
+            ->defaultSort('updated_at', 'desc')
+            ->emptyStateHeading('Sincronizza la stagione per vedere i risultati');
+    }
+
+    public function getStats(): array
+    {
+        $coverage = $this->coverage;
+        return [
+            [
+                'label' => 'Giocatori in Roster',
+                'value' => $coverage['total'],
+                'color' => 'gray',
+            ],
+            [
+                'label' => 'Matchati API',
+                'value' => $coverage['matched'],
+                'color' => 'success',
+            ],
+            [
+                'label' => '% Copertura API',
+                'value' => $coverage['pct'] . '%',
+                'color' => $coverage['pct'] > 90 ? 'success' : ($coverage['pct'] > 70 ? 'warning' : 'danger'),
+            ],
+            [
+                'label' => 'Nuovi Creati (L4)',
+                'value' => $coverage['l4Count'],
+                'color' => 'amber',
+            ],
         ];
     }
 
@@ -98,10 +261,19 @@ class SincronizzazioneRose extends Page
      */
     public function getCoverageProperty(): array
     {
-        $total   = Player::count();
-        $matched = Player::whereNotNull('api_football_data_id')->count();
+        $seasonId = $this->selectedSeasonId;
+
+        $total   = PlayerSeasonRoster::where('season_id', $seasonId)->count();
+        $matched = PlayerSeasonRoster::where('season_id', $seasonId)
+            ->whereHas('player', fn($q) => $q->whereNotNull('api_football_data_id'))
+            ->count();
+            
+        $l4Count = PlayerSeasonRoster::where('season_id', $seasonId)
+            ->whereHas('player', fn($q) => $q->whereNull('fanta_platform_id'))
+            ->count();
+
         $pct     = $total > 0 ? round($matched / $total * 100, 1) : 0.0;
-        return compact('total', 'matched', 'pct');
+        return compact('total', 'matched', 'l4Count', 'pct');
     }
 
     /**
@@ -128,10 +300,12 @@ class SincronizzazioneRose extends Page
      */
     public function getOrphansProperty(): \Illuminate\Support\Collection
     {
-        $currentSeasonModel = \App\Models\Season::where('is_current', true)->first();
-        $seasonId = $currentSeasonModel ? $currentSeasonModel->id : 0;
+        $seasonId = $this->selectedSeasonId;
+        $seasonModel = Season::find($seasonId);
+        
+        if (!$seasonModel) return collect();
 
-        // Serie A teams per la stagione corrente
+        // Serie A teams per la stagione selezionata
         $activeTeams = Team::whereHas('teamSeasons', function ($q) use ($seasonId) {
             $q->where('season_id', $seasonId)->where('is_active', true);
         })->get();
@@ -147,28 +321,35 @@ class SincronizzazioneRose extends Page
             ->values()
             ->toArray();
 
-        return Player::whereNull('deleted_at')
+        $hasSynced = ImportLog::where('import_type', 'sync_rose_api_historical')
+            ->where('season_id', $seasonId)
+            ->where('status', 'successo')
+            ->exists();
+
+        return Player::with(['rosters' => fn($q) => $q->where('season_id', $seasonId)])
+            ->whereHas('rosters', fn($q) => $q->where('season_id', $seasonId))
+            ->whereNull('deleted_at')
             ->whereNotNull('fanta_platform_id')
             ->whereNull('api_football_data_id')
-            ->select('id', 'name', 'team_name', 'team_id', 'role', 'fanta_platform_id')
-            ->orderBy('team_name')
-            ->orderBy('name')
             ->get()
-            ->map(function ($player) use ($activeTeamNames) {
+            ->sortBy('team_name')
+            ->map(function ($player) use ($activeTeamNames, $hasSynced) {
                 $teamLower = strtolower(trim($player->team_name ?? ''));
 
                 if (empty($player->team_id)) {
-                    // Tipo B — squadra non riconosciuta in DB (non in Serie A nel dataset)
                     $motivo = '🔴 Tipo B — Squadra non riconosciuta nel DB';
                     $colore = 'red';
                 } elseif (!empty($teamLower) && !in_array($teamLower, $activeTeamNames, true)) {
-                    // Tipo B — squadra presente nel listone ma retrocessa / non più in A
                     $motivo = '🟡 Tipo B — Squadra Retrocessa / Non più in Serie A';
                     $colore = 'amber';
                 } else {
-                    // Tipo A — squadra in A, giocatore non matchato (probabile alias / accento)
-                    $motivo = '🔵 Tipo A — Probabile Alias (verificare accenti/forma nome)';
-                    $colore = 'blue';
+                    if (!$hasSynced) {
+                        $motivo = '⚪ Stagione non ancora sincronizzata';
+                        $colore = 'gray';
+                    } else {
+                        $motivo = '🔵 Tipo A — Probabile Alias (verificare accenti/forma nome)';
+                        $colore = 'blue';
+                    }
                 }
 
                 $player->sospetto_motivo = $motivo;

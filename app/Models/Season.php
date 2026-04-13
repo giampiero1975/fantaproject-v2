@@ -35,4 +35,16 @@ class Season extends Model
     {
         return $this->hasMany(PlayerSeasonRoster::class);
     }
+
+    /**
+     * Verifica ferrea se la stagione è quella corrente.
+     * Deve avere is_current = 1, l'anno deve corrispondere al calcolo dell'SeasonHelper
+     * e la data odierna deve essere nel range start_date / end_date.
+     */
+    public function isActuallyCurrent(): bool
+    {
+        return $this->is_current 
+            && $this->season_year === \App\Helpers\SeasonHelper::getCurrentSeason()
+            && now()->between($this->start_date, $this->end_date);
+    }
 }

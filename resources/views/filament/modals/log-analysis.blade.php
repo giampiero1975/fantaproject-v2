@@ -12,6 +12,7 @@
             <thead>
                 <tr class="bg-gray-100 dark:bg-gray-800">
                     <th class="px-3 py-2 text-left text-gray-500">ID</th>
+                    <th class="px-3 py-2 text-left text-gray-500">Stagione</th>
                     <th class="px-3 py-2 text-left text-gray-500">Data</th>
                     <th class="px-3 py-2 text-center text-gray-500">Stato</th>
                     <th class="px-3 py-2 text-center text-gray-500">Elaborati</th>
@@ -23,6 +24,9 @@
                 @foreach($logs as $log)
                     <tr class="hover:bg-gray-50 dark:hover:bg-gray-800/50">
                         <td class="px-3 py-2 font-mono text-gray-400">{{ $log->id }}</td>
+                        <td class="px-3 py-2 font-bold text-primary-600 dark:text-primary-400">
+                            {{ $log->season ? \App\Helpers\SeasonHelper::formatYear($log->season->season_year) : 'N/A' }}
+                        </td>
                         <td class="px-3 py-2 font-mono text-gray-500">{{ $log->created_at->format('d/m/Y H:i') }}</td>
                         <td class="px-3 py-2 text-center">
                             @php
@@ -44,7 +48,7 @@
                     {{-- Dettaglio orfani --}}
                     @if($log->details && str_contains($log->details, 'Orfani'))
                         <tr class="bg-amber-50/50 dark:bg-amber-900/10">
-                            <td colspan="6" class="px-3 py-1.5 text-xs text-amber-700 dark:text-amber-400 italic font-mono">
+                            <td colspan="7" class="px-3 py-1.5 text-xs text-amber-700 dark:text-amber-400 italic font-mono">
                                 {{ Str::limit($log->details, 180) }}
                             </td>
                         </tr>
@@ -69,7 +73,7 @@
             </div>
         </div>
 
-        <p class="text-xs text-gray-400 text-right">Fonte: <code>import_logs</code> WHERE import_type = 'sync_rose_api' — ultimi 10 run</p>
+        <p class="text-xs text-gray-400 text-right italic">Fonte: <code>import_logs</code> — Cronologia ultime 10 operazioni di sincronizzazione rose (Direct & Historical)</p>
     @endif
 
 </div>

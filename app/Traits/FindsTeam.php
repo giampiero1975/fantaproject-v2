@@ -12,6 +12,32 @@
       * @var array
       */
      private array $teamCache = [];
+ 
+     /**
+      * Mappatura manuale per nomi comuni nei listoni Excel.
+      */
+     private array $manualTeamMap = [
+         'milan' => 'AC Milan',
+         'inter' => 'FC Internazionale Milano',
+         'napoli' => 'SSC Napoli',
+         'lazio' => 'SS Lazio',
+         'roma' => 'AS Roma',
+         'juventus' => 'Juventus FC',
+         'atalanta' => 'Atalanta BC',
+         'bologna' => 'Bologna FC 1909',
+         'torino' => 'Torino FC',
+         'fiorentina' => 'ACF Fiorentina',
+         'sassuolo' => 'US Sassuolo Calcio',
+         'udinese' => 'Udinese Calcio',
+         'empoli' => 'Empoli FC',
+         'lecce' => 'US Lecce',
+         'salernitana' => 'US Salernitana 1919',
+         'verona' => 'Hellas Verona FC',
+         'monza' => 'AC Monza',
+         'frosinone' => 'Frosinone Calcio',
+         'genoa' => 'Genoa CFC',
+         'cagliari' => 'Cagliari Calcio',
+     ];
      
      /**
       * Carica e memorizza la collection di tutte le squadre.
@@ -48,6 +74,16 @@
          
          $lowerTrimmedName = strtolower($trimmedName);
          Log::debug("[Team Finder] Nome normalizzato per la query: '{$lowerTrimmedName}'");
+         
+         // --- LIVELLO 0: Mapping Manuale Hardcoded ---
+         if (isset($this->manualTeamMap[$lowerTrimmedName])) {
+             $mappedName = $this->manualTeamMap[$lowerTrimmedName];
+             $team = Team::where('name', $mappedName)->first();
+             if ($team) {
+                 Log::info("[Team Finder] ✅ SUCCESSO Livello 0 (Mappa Manuale) per '{$trimmedName}' -> Mappato a '{$team->name}' (ID: {$team->id})");
+                 return $this->teamCache[$trimmedName] = $team->id;
+             }
+         }
          
          // --- LIVELLO 1: Corrispondenza Esatta con short_name ---
          Log::debug("[Team Finder] TENTATIVO LIVELLO 1: Ricerca per short_name esatto.");

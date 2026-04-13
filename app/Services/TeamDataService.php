@@ -417,9 +417,10 @@ class TeamDataService
      * Endpoint: GET /v4/teams/{id}  →  field: squad[]
      *
      * @param  int $apiTeamId  Il valore di teams.api_id
+     * @param  int|null $season L'anno della stagione (es: 2024)
      * @return array           Array di giocatori: [id, name, position, dateOfBirth, ...]
      */
-    public function getSquad(int $apiTeamId): array
+    public function getSquad(int $apiTeamId, ?int $season = null): array
     {
         $apiKey = config('services.player_stats_api.providers.football_data_org.api_key');
 
@@ -429,6 +430,13 @@ class TeamDataService
         }
 
         $url = "https://api.football-data.org/v4/teams/{$apiTeamId}";
+        if ($season) {
+            $url .= "?season={$season}";
+        }
+
+        // Logga l'URL per permettere il debug manuale (Postman)
+        // Usiamo un log generico, il comando lo catturerà se configurato o lo vedremo nei log laravel
+        \Illuminate\Support\Facades\Log::info("[API REQUEST] Squad URL: {$url}");
 
         try {
             $response = \Illuminate\Support\Facades\Http::withHeaders([
@@ -436,6 +444,11 @@ class TeamDataService
             ])->timeout(15)->get($url);
 
             if ($response->failed()) {
+                // Gestione specifica per il 403 Forbidden (limiti tier gratuito)
+                if ($response->status() === 403) {
+                     throw new \Exception("403_FORBIDDEN_TIER_LIMIT", 403);
+                }
+                
                 \Illuminate\Support\Facades\Log::warning(
                     "TeamDataService::getSquad — HTTP {$response->status()} per teamId={$apiTeamId}"
                 );
@@ -446,6 +459,10 @@ class TeamDataService
             return $data['squad'] ?? [];
 
         } catch (\Throwable $e) {
+            if ($e->getMessage() === "403_FORBIDDEN_TIER_LIMIT") {
+                throw $e;
+            }
+
             \Illuminate\Support\Facades\Log::error(
                 "TeamDataService::getSquad — Exception per teamId={$apiTeamId}: " . $e->getMessage()
             );
@@ -628,7 +645,7 @@ class TeamDataService
                     ],
                     [
                         'league_id' => League::where('api_id', 2019)->first()?->id ?? 1,
-                        'is_active' => true,
+                        'is_active' => $seasonModel->isActuallyCurrent(),
                     ]
                 );
             }

@@ -42,7 +42,9 @@ class Player extends Model
      */
     public function latestRoster()
     {
-        return $this->hasOne(PlayerSeasonRoster::class)->latest('season_id');
+        // Nel nostro DB le stagioni recenti hanno ID minori (es. 2025 = ID 1)
+        // Quindi oldest('season_id') prende la stagione cronologicamente più recente.
+        return $this->hasOne(PlayerSeasonRoster::class)->oldest('season_id');
     }
 
     /**
@@ -63,5 +65,25 @@ class Player extends Model
     public function parentTeam()
     {
         return $this->belongsTo(Team::class, 'parent_team_id');
+    }
+
+    // ─── Accessors (Virtual Attributes) ─────────────────────────────────────
+
+    /**
+     * Accessor per recuperare il team_id corrente senza colonna fisica.
+     * Uso: $player->team_id
+     */
+    public function getTeamIdAttribute(): ?int
+    {
+        return $this->latestRoster?->team_id;
+    }
+
+    /**
+     * Accessor per recuperare il nome del team corrente.
+     * Uso: $player->team_name
+     */
+    public function getTeamNameAttribute(): ?string
+    {
+        return $this->latestRoster?->team?->name;
     }
 }

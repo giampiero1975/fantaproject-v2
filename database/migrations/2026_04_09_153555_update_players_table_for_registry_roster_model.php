@@ -13,11 +13,19 @@ return new class extends Migration
     {
         Schema::table('players', function (Blueprint $table) {
             // Rimuoviamo le colonne che ora vivono nella pivot player_season_roster
-            $table->dropForeign(['team_id']);
-            $table->dropForeign(['parent_team_id']);
+            if (config('database.default') !== 'sqlite') {
+                $table->dropForeign(['team_id']);
+                $table->dropForeign(['parent_team_id']);
+                
+                $table->dropColumn([
+                    'team_id',
+                    'parent_team_id',
+                ]);
+            }
+
+            // Queste colonne sono sicure da rimuovere anche su SQLite 
+            // perché non hanno vincoli di foreign key espliciti o indici complessi
             $table->dropColumn([
-                'team_id',
-                'parent_team_id',
                 'team_name',
                 'role',
                 'initial_quotation',

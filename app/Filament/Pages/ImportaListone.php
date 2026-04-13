@@ -194,7 +194,8 @@ class ImportaListone extends Page
 
             $processed = $tuttiImporter ? $tuttiImporter->getProcessedCount() : 0;
             $created   = $tuttiImporter ? $tuttiImporter->getCreatedCount()   : 0;
-            $updated   = $tuttiImporter ? $tuttiImporter->getUpdatedCount()   : 0;
+            $transfers = $tuttiImporter ? $tuttiImporter->getTransferCount()  : 0;
+            $confirmed = $tuttiImporter ? $tuttiImporter->getConfirmedCount() : 0;
 
             $formattedSeason = $season ? \App\Helpers\SeasonHelper::formatYear($season->season_year) : 'Unknown';
 
@@ -203,20 +204,9 @@ class ImportaListone extends Page
             $cedutiCount = 0;
 
             if (!empty($processedIds)) {
-                // 1. RIMOZIONE DAL ROSTER STAGIONALE
-                // Cerchiamo i giocatori che hanno un roster per questa stagione ma NON sono nel file
-                $rostersToRemove = \App\Models\PlayerSeasonRoster::where('season_id', $seasonId)
-                    ->whereNotIn('player_id', $processedIds)
-                    ->get();
-
-                foreach ($rostersToRemove as $roster) {
-                    $roster->delete();
-                    $logger->info("   - Rimosso dal roster {$formattedSeason}: " . ($roster->player?->name ?? "ID {$roster->player_id}"));
-                }
-
-                // 2. SOFT DELETE GLOBALE (Anagrafica)
-                // Ogni calciatore attualmente ATTIVO nel database che NON compare nel listone "Tutti" appena caricato
-                // viene considerato fuori dalla Serie A (Ceduto).
+                // 1. SOFT DELETE GLOBALE (Anagrafica)
+                // Applichiamo la pulizia globale dei ceduti su OGNI importazione.
+                // Chi non è nel listone viene considerato fuori dalla Serie A.
                 $playersToSoftDelete = \App\Models\Player::whereNotIn('id', $processedIds)
                     ->whereNull('deleted_at')
                     ->get();
@@ -224,7 +214,7 @@ class ImportaListone extends Page
                 $cedutiCount = $playersToSoftDelete->count();
 
                 if ($cedutiCount > 0) {
-                    $logger->info("🧹  PULIZIA GLOBALE CEDUTI: Trovati {$cedutiCount} calciatori non più presenti nel listone.");
+                    $logger->info("🧹  PULIZIA GLOBALE CEDUTI: Trovati {$cedutiCount} calciatori non più presenti nel listone attuale ({$formattedSeason}).");
                     
                     foreach ($playersToSoftDelete as $player) {
                         $player->delete(); // Soft Delete (deleted_at)
@@ -234,20 +224,20 @@ class ImportaListone extends Page
             }
 
             $importLog->status         = 'successo';
-            $importLog->details        = "Importazione completata per stagione {$formattedSeason}. Processati: {$processed}, Creati: {$created}, Aggiornati: {$updated}, Ceduti: {$cedutiCount}.";
+            $importLog->details        = "Importazione completata per stagione {$formattedSeason}. Processati: {$processed}, Creati: {$created}, Aggiornati: {$transfers}, Ceduti: {$cedutiCount}.";
             $importLog->rows_processed = $processed;
             $importLog->rows_created   = $created;
-            $importLog->rows_updated   = $updated;
+            $importLog->rows_updated   = $transfers; // Salviamo i trasferimenti come 'updated'
             $importLog->rows_ceduti    = $cedutiCount;
             $importLog->save();
 
-            $logger->info("✅  COMPLETATO — Processati: {$processed} | Creati: {$created} | Aggiornati: {$updated} | Ceduti: {$cedutiCount}");
+            $logger->info("✅  COMPLETATO — Processati: {$processed} | Nuovi: {$created} | Trasferimenti: {$transfers} | Confermati: {$confirmed} | Ceduti: {$cedutiCount}");
             $logger->info("📋  ImportLog ID: {$importLog->id} aggiornato (status: successo)");
             $logger->info('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
             Notification::make()
                 ->title('Importazione completata!')
-                ->body("Stagione: {$formattedSeason} | Processati: {$processed} | Creati: {$created} | Aggiornati: {$updated} | Ceduti: {$cedutiCount}")
+                ->body("Stagione: {$formattedSeason} | Nuovi: {$created} | Trasferimenti: {$transfers} | Confermati: {$confirmed} | Ceduti: {$cedutiCount}")
                 ->success()
                 ->send();
 
