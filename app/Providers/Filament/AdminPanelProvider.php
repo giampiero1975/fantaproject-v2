@@ -17,6 +17,8 @@ use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
 use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Session\Middleware\StartSession;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
+use Filament\View\PanelsRenderHook;
+use Illuminate\Support\HtmlString;
 
 class AdminPanelProvider extends PanelProvider
 {
@@ -63,6 +65,19 @@ class AdminPanelProvider extends PanelProvider
             'Analisi & Diagnostica',
             'Core Logic',
             'Configurazioni',
-        ]);
+        ])
+        ->renderHook(
+            PanelsRenderHook::BODY_START,
+            fn (): HtmlString => new HtmlString(
+                request()->has('minimal') ? '
+                    <style>
+                        .fi-sidebar, .fi-topbar, .fi-sidebar-header, .fi-sidebar-content-ctn, .fi-topbar-placeholder, .fi-header { display: none !important; }
+                        .fi-main { padding-left: 0 !important; padding-top: 0 !important; }
+                        .fi-main-ctn { margin-left: 0 !important; }
+                        .fi-content-header { margin-top: 0 !important; }
+                    </style>
+                ' : ''
+            )
+        );
     }
 }

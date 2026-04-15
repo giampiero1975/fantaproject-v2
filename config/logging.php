@@ -141,6 +141,13 @@ return [
             'replace_placeholders' => true,
         ],
 
+        'fbref_surgical' => [
+            'driver' => 'single',
+            'path' => storage_path('logs/Sync/fbref_surgical.log'),
+            'level' => 'info',
+            'replace_placeholders' => true,
+        ],
+
     ],
 
 ];

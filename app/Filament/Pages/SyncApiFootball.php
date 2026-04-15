@@ -22,17 +22,17 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Throwable;
 
-class SincronizzazioneRose extends Page implements HasTable
+class SyncApiFootball extends Page implements HasTable
 {
     use InteractsWithTable;
 
     protected static ?string $navigationIcon  = 'heroicon-o-arrow-path';
-    protected static ?string $navigationLabel = '7. Sincronizzazione Rose';
+    protected static ?string $navigationLabel = '7. Sync API-Football';
     protected static ?string $navigationGroup = 'Setup Dati';
     protected static ?int    $navigationSort  = 7;
-    protected static ?string $title           = 'Sincronizzazione Rose Serie A (Step 7)';
-    protected static string  $view            = 'filament.pages.sincronizzazione-rose';
-    protected static ?string $slug            = 'sincronizzazione-rose';
+    protected static ?string $title           = 'Sync API-Football (Football-Data.org)';
+    protected static string  $view            = 'filament.pages.sync-api-football';
+    protected static ?string $slug            = 'sync-api-football';
 
     public ?int $selectedSeasonId = null;
     public $lookbackStatus        = null;
@@ -141,26 +141,6 @@ class SincronizzazioneRose extends Page implements HasTable
                         }
                     } catch (Throwable $e) {
                         Notification::make()->title('Errore API')->body($e->getMessage())->danger()->send();
-                    }
-                }),
-
-            // ── Sincronizza FBref IDs ──────────────────────────────────────────
-            Action::make('syncFbrefData')
-                ->label('2. Sync FBref IDs')
-                ->icon('heroicon-o-magnifying-glass')
-                ->color('primary')
-                ->requiresConfirmation()
-                ->modalHeading('Ricerca Automatica ID FBref')
-                ->modalDescription('Cerca gli URL e gli ID FBref mancanti tramite ricerca semantica dei nomi. Consuma crediti proxy.')
-                ->action(function (): void {
-                    set_time_limit(600);
-                    Notification::make()->title('⏳ Ricerca FBref avviata...')->body('Ricerca in corso per i giocatori mancanti di URL.')->info()->send();
-
-                    try {
-                        Artisan::call('fbref:update-player-fbref-urls', ['--all' => true]);
-                        Notification::make()->title('✅ Ricerca FBref completata!')->success()->send();
-                    } catch (Throwable $e) {
-                        Notification::make()->title('Errore FBref')->body($e->getMessage())->danger()->send();
                     }
                 }),
 

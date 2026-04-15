@@ -12,6 +12,7 @@ use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
+use Filament\Support\Enums\MaxWidth;
 
 class PlayerResource extends Resource
 {
@@ -132,15 +133,52 @@ class PlayerResource extends Resource
                         'C' => 'Centrocampista',
                         'A' => 'Attaccante',
                     ]),
-                Tables\Filters\SelectFilter::make('team_id')
-                    ->label('Squadra (Attuale)')
-                    ->relationship('latestRoster.team', 'name')
-                    ->searchable()
-                    ->preload(),
-                Tables\Filters\SelectFilter::make('season_id')
-                    ->label('Presente in Stagione')
-                    ->relationship('rosters.season', 'season_year')
-                    ->getOptionLabelFromRecordUsing(fn ($record) => \App\Helpers\SeasonHelper::formatYear($record->season_year)),
+                Tables\Filters\Filter::make('roster_filter')
+                    ->form([
+                        Forms\Components\Grid::make(2)
+                            ->schema([
+                                Forms\Components\Select::make('season_id')
+                                    ->label('Presente in Stagione')
+                                    ->options(fn () => \App\Models\Season::all()->pluck('season_year', 'id')->map(fn($y) => \App\Helpers\SeasonHelper::formatYear($y)))
+                                    ->preload(),
+                                Forms\Components\Select::make('team_id')
+                                    ->label('Squadra')
+                                    ->relationship('latestRoster.team', 'name')
+                                    ->searchable()
+                                    ->preload(),
+                            ]),
+                    ])
+                    ->query(function (Builder $query, array $data) {
+                        return $query->when(
+                            $data['season_id'] || $data['team_id'],
+                            fn ($q) => $q->whereHas('rosters', function ($sub) use ($data) {
+                                $sub->when($data['season_id'], fn ($s) => $s->where('season_id', $data['season_id']))
+                                    ->when($data['team_id'], fn ($t) => $t->where('team_id', $data['team_id']));
+                            })
+                        );
+                    })
+                    ->indicateUsing(function (array $data): array {
+                        $indicators = [];
+                        if ($data['season_id'] ?? null) {
+                            $season = \App\Models\Season::find($data['season_id']);
+                            $indicators[] = 'Stagione: ' . \App\Helpers\SeasonHelper::formatYear($season->season_year);
+                        }
+                        if ($data['team_id'] ?? null) {
+                            $team = \App\Models\Team::find($data['team_id']);
+                            $indicators[] = 'Squadra: ' . $team->name;
+                        }
+                        return $indicators;
+                    }),
+                Tables\Filters\TernaryFilter::make('fbref_status')
+                    ->label('Status FBref')
+                    ->placeholder('Tutti i calciatori')
+                    ->trueLabel('Mappati')
+                    ->falseLabel('Mancanti')
+                    ->queries(
+                        true: fn (Builder $query) => $query->whereNotNull('fbref_id'),
+                        false: fn (Builder $query) => $query->whereNull('fbref_id'),
+                    )
+                    ->native(false),
             ])
             ->actions([
                 Tables\Actions\ViewAction::make(),
@@ -151,7 +189,8 @@ class PlayerResource extends Resource
                     Tables\Actions\DeleteBulkAction::make(),
                     Tables\Actions\RestoreBulkAction::make(),
                 ]),
-            ]);
+            ])
+            ->filtersFormWidth(MaxWidth::ExtraLarge);
     }
 
     public static function getRelations(): array

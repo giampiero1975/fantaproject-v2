@@ -52,6 +52,43 @@
      }
      
      /**
+     * [ERP-FAST] Versione In-Memory della ricerca Team.
+     * Cerca un team all'interno di una Collection pre-caricata, rispettandosi i 3 livelli di fallback.
+     */
+    public function findTeamIdInCollection(\Illuminate\Support\Collection $teams, ?string $rosterTeamName): ?int
+    {
+        if (empty(trim($rosterTeamName))) return null;
+        $trimmedName = trim($rosterTeamName);
+        $lowerTrimmedName = strtolower($trimmedName);
+
+        if (isset($this->teamCache[$trimmedName])) {
+            return $this->teamCache[$trimmedName];
+        }
+
+        // --- LIVELLO 0: Mapping Manuale ---
+        if (isset($this->manualTeamMap[$lowerTrimmedName])) {
+            $mappedName = strtolower($this->manualTeamMap[$lowerTrimmedName]);
+            $team = $teams->filter(fn($t) => strtolower($t->name) === $mappedName)->first();
+            if ($team) return $this->teamCache[$trimmedName] = $team->id;
+        }
+
+        // --- LIVELLO 1: Short Name esatto ---
+        $team = $teams->filter(fn($t) => strtolower($t->short_name) === $lowerTrimmedName)->first();
+        if ($team) return $this->teamCache[$trimmedName] = $team->id;
+
+        // --- LIVELLO 2: Nome Completo esatto ---
+        $team = $teams->filter(fn($t) => strtolower($t->name) === $lowerTrimmedName)->first();
+        if ($team) return $this->teamCache[$trimmedName] = $team->id;
+
+        // --- LIVELLO 3: Contains ---
+        $team = $teams->filter(fn($t) => str_contains(strtolower($t->name), $lowerTrimmedName))->first();
+        if ($team) return $this->teamCache[$trimmedName] = $team->id;
+
+        $this->teamCache[$trimmedName] = null;
+        return null;
+    }
+
+    /**
       * Trova l'ID di un team usando una logica a cascata a 3 livelli con logging dettagliato.
       *
       * @param string|null $rosterTeamName Il nome del team dal file di import.

@@ -267,16 +267,16 @@
         </div>
 
         {{-- ══════════════════════════════════════════════════════════════════ --}}
-        {{-- STEP 7 — Sincronizzazione Rose Serie A                           --}}
+        {{-- STEP 7 — Sync API-Football                                       --}}
         {{-- ══════════════════════════════════════════════════════════════════ --}}
         @php $th = stepTheme($s7_status) @endphp
         <div style="width:100%; border-radius:8px; border:1px solid #e5e7eb; overflow:hidden; box-shadow:0 1px 3px rgba(0,0,0,.07); {{ $th['border_style'] }}">
             <div style="display:flex; align-items:center; justify-content:space-between; padding:10px 16px; {{ $th['header_style'] }}">
                 <span style="font-weight:700; color:#1f2937; font-size:0.875rem;">
-                    {{ $th['icon'] }} 7. Sincronizzazione Rose Serie A
+                    {{ $th['icon'] }} 7. Sync API-Football
                 </span>
                 <div style="display:flex; align-items:center; gap:8px;">
-                    <a href="{{ route('filament.admin.pages.sincronizzazione-rose') }}" class="text-xs font-bold text-blue-600 hover:underline">Vai a Sync</a>
+                    <a href="{{ route('filament.admin.pages.sync-api-football') }}" class="text-xs font-bold text-blue-600 hover:underline">Vai a Sync</a>
                     <span style="{{ $th['badge_style'] }}">{{ $th['badge_label'] }}</span>
                 </div>
             </div>

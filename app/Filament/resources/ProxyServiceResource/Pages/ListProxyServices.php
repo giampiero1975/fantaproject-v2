@@ -13,6 +13,7 @@ class ListProxyServices extends ListRecords
     protected function getHeaderWidgets(): array
     {
         return [
+            \App\Filament\Widgets\ProxyStatusWidget::class,
             ProxyServiceResource\Widgets\ProxyManualWidget::class,
         ];
     }

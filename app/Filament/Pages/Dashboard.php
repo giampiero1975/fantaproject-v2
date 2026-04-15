@@ -5,31 +5,26 @@ namespace App\Filament\Pages;
 use App\Helpers\SeasonHelper;
 use App\Models\Season;
 use App\Models\TeamSeason;
-use App\Models\ImportLog;
 use App\Models\Player;
 use App\Models\Team;
 use App\Models\TeamHistoricalStanding;
-use App\Services\TeamFbrefAlignmentService;
 use Carbon\Carbon;
 use Filament\Notifications\Notification;
 use Filament\Pages\Dashboard as BaseDashboard;
 use Illuminate\Support\Facades\DB;
+use Filament\Forms\Contracts\HasForms;
+use Filament\Forms\Concerns\InteractsWithForms;
+use Filament\Forms\Components\Section;
+use Filament\Forms\Components\Grid;
+use Filament\Forms\Components\Select;
+use Filament\Forms\Get;
+use Illuminate\Database\Eloquent\Builder;
+use App\Models\PlayerSeasonRoster;
 
-class Dashboard extends BaseDashboard
+class Dashboard extends BaseDashboard implements HasForms
 {
-    /**
-     * Conta le squadre di Serie A 2025 che non hanno ancora l'URL FBref
-     * Utilizzato nella view Blade
-     */
-    public function getMissingFbrefTeamsCount(): int
-    {
-        $currentSeasonModel = Season::where('is_current', true)->first();
-        if (!$currentSeasonModel) return 0;
+    use InteractsWithForms;
 
-        return TeamSeason::where('season_id', $currentSeasonModel->id)
-            ->whereHas('team', fn($q) => $q->whereNull('fbref_id'))
-            ->count();
-    }
 
     protected static ?string $navigationIcon  = 'heroicon-o-home';
     protected static ?string $navigationLabel = 'Dashboard';
@@ -41,6 +36,12 @@ class Dashboard extends BaseDashboard
     public function getColumns(): int|array { return 1; }
 
     protected static string $view = 'filament.pages.dashboard';
+
+    public function mount(): void
+    {
+        // No form initialization needed anymore
+    }
+
 
     /**
      * Calcola tutti i dati per i 5 step e li passa alla view.
@@ -83,18 +84,11 @@ class Dashboard extends BaseDashboard
         // ── Step 4: Listone ───────────────────────────────────────────────────
         $playerTotal   = Player::count();
         $playerFanta   = Player::whereNotNull('fanta_platform_id')->count();
-        $lastListone   = ImportLog::where('import_type', 'main_roster')
-            ->where('status', 'like', '%success%')
-            ->orWhere('status', 'successo')
-            ->latest()->first();
 
         // ── Step 5: Sync API ─────────────────────────────────────────────────
         $playerApi    = Player::whereNotNull('api_football_data_id')->count();
         $playerOrphan = Player::whereNotNull('fanta_platform_id')->whereNull('api_football_data_id')->count();
         $pct          = $playerTotal > 0 ? round($playerApi / $playerTotal * 100, 1) : 0.0;
-        $lastSync     = ImportLog::where('import_type', 'sync_rose_api')
-            ->where('status', 'successo')
-            ->latest()->first();
 
         // ── Stato per step (propedeutica) ───────────────────────────────────
         $fbrefMissingCount = Team::whereIn('id', $teamIds)->whereNull('fbref_id')->count();
@@ -157,13 +151,11 @@ class Dashboard extends BaseDashboard
         $teamsUniqueCount = Team::count(); // Master records unici
         $teamsTotalCount  = TeamSeason::count(); // Tutti gli snapshot storici
 
-
         return compact(
             'targetSeason', 'seasonLabel', 'currentYear', 'lookback',
             'teamTotal', 'teamWithApi', 'teamWithShortName', 'standingCount', 'standingTarget',
             'teamWithTier', 'tierDist',
             'playerTotal', 'playerFanta', 'playerApi', 'playerOrphan', 'pct',
-            'lastListone', 'lastSync',
             'step1Ok', 'step2Ok', 'step3Ok', 'step4Ok', 'step5Ok',
             'missingFbrefCount', 'fbrefIncomplete',
             'historyYears', 'coveringSeasonsCount', 'totalHistoricalRecords', 'missingHistoryYears',

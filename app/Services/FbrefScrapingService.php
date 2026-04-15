@@ -1,7 +1,8 @@
 <?php
 namespace App\Services;
 
-use App\Traits\ManagesFbrefScraping; // <-- USA IL NUOVO TRAIT
+use App\Traits\ManagesFbrefScraping;
+use App\Traits\FindsPlayerByName; // <-- NUOVO TRAIT
 use Symfony\Component\DomCrawler\Crawler;
 use Illuminate\Support\Str;
 use Exception;
@@ -9,8 +10,7 @@ use Illuminate\Support\Facades\Log;
 
 class FbrefScrapingService
 {
-    // 1. DICHIARIAMO DI USARE IL TRAIT
-    use ManagesFbrefScraping;
+    use ManagesFbrefScraping, FindsPlayerByName;
 
     protected $targetUrl;
 
@@ -64,11 +64,15 @@ class FbrefScrapingService
             if (empty($tableId))
                 return;
 
-            $cleanTableId = Str::of($tableId)->replaceMatches('/_\d+$/', '')
-                ->replaceMatches('/_dom_lg$/', '')
-                ->__toString();
+            $cleanTableId = null;
+            foreach (array_keys($teamStatsSchema) as $schemaKey) {
+                if (str_starts_with($tableId, $schemaKey)) {
+                    $cleanTableId = $schemaKey;
+                    break;
+                }
+            }
 
-            if (isset($teamStatsSchema[$cleanTableId])) {
+            if ($cleanTableId) {
                 $columnMap = $teamStatsSchema[$cleanTableId];
                 Log::info("Tabella '{$tableId}' trovata e mappata (Schema: '{$cleanTableId}').");
 
@@ -394,5 +398,81 @@ class FbrefScrapingService
 
         $html = file_get_contents($filePath);
         return $this->parseDataFromHtml($html, $schemaKey);
+    }
+
+    /**
+     * Sincronizza i dati dei calciatori con il database (Mapping).
+     */
+    public function syncPlayersData(array $playersData, int $teamId, int $seasonId, bool $dryRun = false, bool $rigidMapping = false): array
+    {
+        $results = [
+            'total' => count($playersData),
+            'matched' => 0,
+            'updated' => 0,
+            'noise' => 0,
+            'log' => []
+        ];
+
+        // Recupero Roster Locale per Matching
+        $localPlayers = \App\Models\Player::whereHas('rosters', function ($q) use ($teamId, $seasonId) {
+            $q->where('team_id', $teamId)->where('season_id', $seasonId);
+        })->get();
+
+        foreach ($playersData as $sPlayer) {
+            $sName = $sPlayer['Player'] ?? null;
+            $sUrl  = $sPlayer['fbref_url_extracted'] ?? null;
+            $sId   = $sPlayer['fbref_id_extracted'] ?? null;
+
+            if (!$sName || !$sUrl) continue;
+
+            $bestMatch = null;
+
+            foreach ($localPlayers as $lPlayer) {
+                // 1. Match Esatto per ID (se già mappato)
+                if ($lPlayer->fbref_id === $sId) {
+                    $bestMatch = $lPlayer;
+                    break;
+                }
+
+                // 2. Match via Helper di Progetto
+                if ($this->namesAreSimilar($sName, $lPlayer->name)) {
+                    $bestMatch = $lPlayer;
+                    break;
+                }
+            }
+
+            if ($bestMatch) {
+                // LOGICA RIGID MAPPING (SST):
+                // Se attivato, scartiamo il match se il giocatore locale non ha ID FBref (è un nuovo mapping) 
+                // MA mancano gli ID di riferimento (Listone o API Football).
+                if ($rigidMapping && empty($bestMatch->fbref_id)) {
+                    if (empty($bestMatch->fanta_platform_id) && empty($bestMatch->api_football_data_id)) {
+                        $results['noise']++;
+                        $results['log'][] = "🚫 RIGID SKIP: '{$sName}' -> '{$bestMatch->name}' (Mancano ID di riferimento)";
+                        continue;
+                    }
+                }
+
+                $results['matched']++;
+                $isNewMapping = ($bestMatch->fbref_id !== $sId || $bestMatch->fbref_url !== $sUrl);
+                
+                if ($isNewMapping) {
+                    $results['updated']++;
+                    if (!$dryRun) {
+                        $bestMatch->update(['fbref_id' => $sId, 'fbref_url' => $sUrl]);
+                        $results['log'][] = "✅ MATCH & UPDATE: '{$sName}' -> '{$bestMatch->name}'";
+                    } else {
+                        $results['log'][] = "🧪 [DRY-RUN] WOULD UPDATE: '{$sName}' -> '{$bestMatch->name}'";
+                    }
+                } else {
+                    $results['log'][] = "ℹ️ ALREADY MAPPED: '{$sName}' -> '{$bestMatch->name}'";
+                }
+            } else {
+                $results['noise']++;
+                $results['log'][] = "❓ NO MATCH (Noise): '{$sName}'";
+            }
+        }
+
+        return $results;
     }
 }

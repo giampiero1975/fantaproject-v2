@@ -40,10 +40,17 @@ class ScraperApiProvider implements ProxyProviderInterface
             'url' => $targetUrl,
         ];
 
-        // FBref ora richiede premium=true per le pagine storiche /comps/
+        // 1. Carica parametri di default dal DB (se presenti)
+        if (!empty($proxy->default_params)) {
+            $params = array_merge($params, $proxy->default_params);
+        }
+
+        // 2. Logica Specifica FBref (JS Rendering & Premium)
+        // Per ora gestiti dinamicamente per non bruciare crediti inutilmente
         if (str_contains($targetUrl, 'fbref.com')) {
-            $params['premium'] = 'true';
-            $params['render'] = 'true';
+            // Se la URL contiene parametri di rendering specifici o è una pagina nota per JS
+            // aggiungiamo render=true solo se necessario.
+            // Per ora lo lasciamo spento (Standard API Mode) come da "Gold Standard".
         }
 
         return $proxy->base_url . '?' . http_build_query($params);

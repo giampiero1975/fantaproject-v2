@@ -9,6 +9,58 @@ use Illuminate\Support\Str;
 
 trait FindsPlayerByName
 {
+    /**
+     * [ERP-FAST] Versione In-Memory del matching calciatori.
+     * Cerca un giocatore all'interno di una Collection pre-caricata, evitando query N+1.
+     */
+    public function findPlayerInCollection(\Illuminate\Support\Collection $players, array $criteria, ?int $teamId = null, ?string $role = null): ?Player
+    {
+        $name = trim((string) ($criteria['name'] ?? ''));
+        if ($name === '') return null;
+
+        $nameLower = strtolower($name);
+
+        // --- L1: Esatto + Team ---
+        if ($teamId) {
+            $player = $players->filter(function($p) use ($name, $teamId) {
+                return $p->name === $name && $p->rosters->contains('team_id', $teamId);
+            })->first();
+            if ($player) return $player;
+        }
+
+        // --- L2: Case-insensitive + Team ---
+        if ($teamId) {
+            $player = $players->filter(function($p) use ($nameLower, $teamId) {
+                return strtolower($p->name) === $nameLower && $p->rosters->contains('team_id', $teamId);
+            })->first();
+            if ($player) return $player;
+        }
+
+        // --- L3: Case-insensitive Globale ---
+        $player = $players->filter(function($p) use ($nameLower, $role) {
+            $match = strtolower($p->name) === $nameLower;
+            if ($role) {
+                $match = $match && $p->rosters->contains('role', $role);
+            }
+            return $match;
+        })->first();
+        if ($player) return $player;
+
+        // --- L4: Algoritmo a Similarità (Sartoriale) ---
+        // Scansione della collection in RAM (molto più veloce del Chunk DB)
+        foreach ($players as $p) {
+            if ($this->namesAreSimilar($name, $p->name)) {
+                // Se abbiamo teamId o ruolo, verifichiamo la coerenza se possibile
+                if ($teamId && !$p->rosters->contains('team_id', $teamId)) continue;
+                if ($role && !$p->rosters->contains('role', $role)) continue;
+                
+                return $p;
+            }
+        }
+
+        return null;
+    }
+
     public function findPlayer(array $criteria, ?Team $team = null, ?string $role = null): ?Player
     {
         $name = trim((string) ($criteria['name'] ?? ''));

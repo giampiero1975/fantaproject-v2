@@ -16,10 +16,12 @@ class ProxyService extends Model
         'is_active',
         'priority',
         'js_cost',
+        'default_params',
     ];
 
     protected $casts = [
         'api_key' => 'encrypted',
         'is_active' => 'boolean',
+        'default_params' => 'array',
     ];
 }

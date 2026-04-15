@@ -62,6 +62,14 @@ trait ManagesFbrefScraping
             $playerNameNode = $row->filter('th[data-stat="player"] a')->first();
             if ($playerNameNode->count() > 0) {
                 $playerRow['Player'] = trim($playerNameNode->text());
+                $rawUrl = $playerNameNode->attr('href');
+                if ($rawUrl) {
+                    $fullUrl = str_starts_with($rawUrl, 'http') ? $rawUrl : 'https://fbref.com' . $rawUrl;
+                    $playerRow['fbref_url_extracted'] = $fullUrl;
+                    if (preg_match('/players\/([a-f0-9]+)/', $fullUrl, $m)) {
+                        $playerRow['fbref_id_extracted'] = $m[1];
+                    }
+                }
             } else {
                 $playerNameNode = $row->filter('th[data-stat="player"]')->first();
                 if($playerNameNode->count() > 0) $playerRow['Player'] = trim($playerNameNode->text());

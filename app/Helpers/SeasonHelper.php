@@ -18,11 +18,29 @@ class SeasonHelper
     }
 
     /**
+     * Restituisce lo ID relazionale della stagione calcistica attuale.
+     */
+    public static function getCurrentSeasonId(): int
+    {
+        $year = self::getCurrentSeason();
+        return \App\Models\Season::where('season_year', $year)->value('id') ?? 1;
+    }
+
+    /**
+     * Restituisce il numero di anni di lookback configurati nel .env
+     */
+    public static function getLookbackYears(): int
+    {
+        return (int) env('PREDICTIVE_LOOKBACK_YEARS', 4);
+    }
+
+    /**
      * Restituisce un array associativo [anno => label] per i filtri.
      * Include la stagione in corso.
      */
-    public static function getLookbackSeasons(int $years = 4): array
+    public static function getLookbackSeasons(?int $years = null): array
     {
+        $years = $years ?? self::getLookbackYears();
         $current = self::getCurrentSeason();
         $seasons = [];
         $seasons[$current] = self::formatYear($current) . " (In Corso)";

@@ -86,4 +86,12 @@ class Player extends Model
     {
         return $this->latestRoster?->team?->name;
     }
+
+    /**
+     * Ritorna gli storici delle statistiche per questo calciatore.
+     */
+    public function historicalStats()
+    {
+        return $this->hasMany(HistoricalPlayerStat::class, 'player_id');
+    }
 }
