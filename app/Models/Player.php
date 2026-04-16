@@ -43,8 +43,11 @@ class Player extends Model
     public function latestRoster()
     {
         // Nel nostro DB le stagioni recenti hanno ID minori (es. 2025 = ID 1)
-        // Quindi oldest('season_id') prende la stagione cronologicamente più recente.
-        return $this->hasOne(PlayerSeasonRoster::class)->oldest('season_id');
+        // ofMany garantisce che SQL restituisca sempre e solo un record atomico per le subquery.
+        return $this->hasOne(PlayerSeasonRoster::class)->ofMany([
+            'season_id' => 'min',
+            'id' => 'max',
+        ]);
     }
 
     /**

@@ -118,17 +118,33 @@ class SyncFbref extends Page implements HasForms, HasActions, HasTable
     public function getSeasonsCoverageRows()
     {
         $rosterAgg = PlayerSeasonRoster::query()
-            ->selectRaw('season_id, COUNT(DISTINCT player_season_roster.player_id) as total_players')
+            ->selectRaw('player_season_roster.season_id, COUNT(DISTINCT player_season_roster.player_id) as total_players')
             ->join('players', 'players.id', '=', 'player_season_roster.player_id')
-            ->whereNull('players.deleted_at')
-            ->groupBy('season_id');
+            ->join('team_season', function($join) {
+                $join->on('player_season_roster.team_id', '=', 'team_season.team_id')
+                     ->on('player_season_roster.season_id', '=', 'team_season.season_id');
+            })
+            ->where('team_season.league_id', 1) // Serie A
+            ->where(function($q) {
+                $q->whereNull('players.deleted_at')
+                  ->orWhereNotNull('players.fanta_platform_id');
+            })
+            ->groupBy('player_season_roster.season_id');
 
         $mappedAgg = PlayerSeasonRoster::query()
-            ->selectRaw('season_id, COUNT(DISTINCT player_season_roster.player_id) as mapped_players')
+            ->selectRaw('player_season_roster.season_id, COUNT(DISTINCT player_season_roster.player_id) as mapped_players')
             ->join('players', 'players.id', '=', 'player_season_roster.player_id')
-            ->whereNull('players.deleted_at')
+            ->join('team_season', function($join) {
+                $join->on('player_season_roster.team_id', '=', 'team_season.team_id')
+                     ->on('player_season_roster.season_id', '=', 'team_season.season_id');
+            })
+            ->where('team_season.league_id', 1) // Serie A
+            ->where(function($q) {
+                $q->whereNull('players.deleted_at')
+                  ->orWhereNotNull('players.fanta_platform_id');
+            })
             ->whereNotNull('players.fbref_id')
-            ->groupBy('season_id');
+            ->groupBy('player_season_roster.season_id');
 
         return Season::query()
             ->orderByDesc('season_year')
@@ -172,14 +188,20 @@ class SyncFbref extends Page implements HasForms, HasActions, HasTable
         $totalPlayersSub = PlayerSeasonRoster::query()
             ->selectRaw('COUNT(DISTINCT player_season_roster.player_id)')
             ->join('players', 'players.id', '=', 'player_season_roster.player_id')
-            ->whereNull('players.deleted_at')
+            ->where(function($q) {
+                $q->whereNull('players.deleted_at')
+                  ->orWhereNotNull('players.fanta_platform_id');
+            })
             ->where('player_season_roster.season_id', $seasonId)
             ->whereColumn('player_season_roster.team_id', 'teams.id');
 
         $mappedPlayersSub = PlayerSeasonRoster::query()
             ->selectRaw('COUNT(DISTINCT player_season_roster.player_id)')
             ->join('players', 'players.id', '=', 'player_season_roster.player_id')
-            ->whereNull('players.deleted_at')
+            ->where(function($q) {
+                $q->whereNull('players.deleted_at')
+                  ->orWhereNotNull('players.fanta_platform_id');
+            })
             ->whereNotNull('players.fbref_id')
             ->where('player_season_roster.season_id', $seasonId)
             ->whereColumn('player_season_roster.team_id', 'teams.id');

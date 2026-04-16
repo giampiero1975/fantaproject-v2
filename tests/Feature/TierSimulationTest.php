@@ -48,6 +48,8 @@ class TierSimulationTest extends TestCase
                 'points' => 90,
                 'played_games' => 38,
                 'position' => 1,
+                'goals_for' => 90,
+                'goals_against' => 20,
                 'created_at' => now(),
                 'updated_at' => now(),
             ]);
@@ -60,6 +62,8 @@ class TierSimulationTest extends TestCase
                 'points' => 45,
                 'played_games' => 38,
                 'position' => 10,
+                'goals_for' => 45,
+                'goals_against' => 55,
                 'created_at' => now(),
                 'updated_at' => now(),
             ]);
@@ -81,6 +85,8 @@ class TierSimulationTest extends TestCase
                 'points' => $d['pts'],
                 'played_games' => 38,
                 'position' => $d['pos'],
+                'goals_for' => $d['league'] === 'Serie A' ? 35 : 60,
+                'goals_against' => $d['league'] === 'Serie A' ? 50 : 40,
                 'created_at' => now(),
                 'updated_at' => now(),
             ]);
@@ -94,6 +100,8 @@ class TierSimulationTest extends TestCase
             'points' => 40,
             'played_games' => 38,
             'position' => 14,
+            'goals_for' => 35,
+            'goals_against' => 60,
             'created_at' => now(),
             'updated_at' => now(),
         ]);

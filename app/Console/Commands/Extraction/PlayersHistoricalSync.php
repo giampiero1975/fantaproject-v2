@@ -14,6 +14,7 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
+use App\Traits\FindsPlayerByName;
 
 class PlayersHistoricalSync extends Command
 {
@@ -31,7 +32,11 @@ class PlayersHistoricalSync extends Command
     protected TeamDataService          $teamDataService;
     protected RoleNormalizationService $roleNormalizer;
     protected \Psr\Log\LoggerInterface $syncLogger;
-    protected array                    $orphanRegistryByRole = [];
+    protected array                    $registryMap = [];
+    protected array                    $slugMap     = [];
+    protected array                    $currentSeasonRosterMap = [];
+    
+    use FindsPlayerByName;
 
     public function __construct(TeamDataService $teamDataService)
     {
@@ -74,15 +79,17 @@ class PlayersHistoricalSync extends Command
             return Command::FAILURE;
         }
 
-        // ── Pre-caricamento Anagrafica Orfani (Ottimizzazione L3) ────────────
-        $this->orphanRegistryByRole = Player::withTrashed()
-            ->whereNull('api_football_data_id')
-            ->select('id', 'name', 'role')
-            ->get()
-            ->groupBy('role')
-            ->toArray();
-
-        $this->info("   - Caricati " . Player::whereNull('api_football_data_id')->count() . " orfani.");
+        // ── [ERP-FAST] Pre-caricamento Anagrafica Globale ──────────────────
+        $this->info("🚀 [ERP-FAST] Caricamento anagrafica in RAM...");
+        $allPlayers = Player::withTrashed()->get();
+        foreach ($allPlayers as $p) {
+            if ($p->api_football_data_id) {
+                $this->registryMap[$p->api_football_data_id] = $p;
+            }
+            $slug = Str::slug($p->name);
+            $this->slugMap[$slug][] = $p; 
+        }
+        $this->info("   - Caricati " . $allPlayers->count() . " calciatori in memoria.");
 
         $this->processSeason($seasonModel, $threshold, $forceMode);
 
@@ -132,8 +139,8 @@ class PlayersHistoricalSync extends Command
         $updatedCount = 0;
         $createdCount = 0;
         $errorCount   = 0;
-        $apiFailCount = 0; // Contatore fallimenti 403
-        $matchedCount = 0; // Nuovo contatore per calciatori già allineati
+        $apiFailCount = 0; 
+        $matchedCount = 0; 
         $totalTeams   = $activeTeams->count();
 
         // --- 🚀 [BULK LOAD] Recupero Massivo Rose ---
@@ -180,14 +187,15 @@ class PlayersHistoricalSync extends Command
                     continue;
                 }
 
-                // 2. RECUPERO ROSTER LOCALE (Listone filtrato per stagione)
-                $localRoster = PlayerSeasonRoster::with('player')
-                    ->where('team_id', $team->id)
-                    ->where('season_id', $seasonModel->id)
-                    ->get();
+                // 2. [ERP-FAST] RECUPERO ROSTER LOCALE IN-MEMORY
+                $this->currentSeasonRosterMap = PlayerSeasonRoster::where('season_id', $seasonModel->id)
+                    ->get()
+                    ->groupBy('team_id')
+                    ->map(fn($group) => $group->keyBy('player_id'))
+                    ->toArray();
 
                 foreach ($squadFromApi as $playerData) {
-                    $res = $this->matchAndSync($playerData, $seasonModel, $team, $localRoster, $threshold, $forceMode);
+                    $res = $this->matchAndSync($playerData, $seasonModel, $team, $threshold, $forceMode);
                     if ($res === 'updated') $updatedCount++;
                     elseif ($res === 'created') $createdCount++;
                     elseif ($res === 'matched') $matchedCount++;
@@ -245,7 +253,7 @@ class PlayersHistoricalSync extends Command
         $this->syncLogger->info("🏁 FINE STAGIONE {$year}: Match={$updatedCount}, Nuovi={$createdCount}");
     }
 
-    private function matchAndSync(array $playerData, Season $season, Team $team, $localRoster, float $threshold, bool $forceMode)
+    private function matchAndSync(array $playerData, Season $season, Team $team, float $threshold, bool $forceMode)
     {
         $apiId   = $playerData['id'];
         $apiName = $playerData['name'];
@@ -256,124 +264,30 @@ class PlayersHistoricalSync extends Command
         $playerMainRole  = $normalizedRoles['role_main'];
         $apiDetailedPos  = $normalizedRoles['detailed_position'];
 
-        // 1. L1: Match per API ID (Registry Truth)
-        $player = Player::withTrashed()->where('api_football_data_id', $apiId)->first();
+        // 1. [ERP-FAST] Matching In-Memory (L1, L2, L3)
+        $player = $this->findPlayerInMaps(
+            $this->registryMap, 
+            $this->slugMap, 
+            ['name' => $apiName, 'api_id' => $apiId],
+            $team->id,
+            $playerMainRole
+        );
+
         if ($player) {
-            $this->syncLogger->info("  - [L1] Hit ID {$player->id}: '{$apiName}'");
+            $this->syncLogger->info("  - [ERP-FAST] Hit found for '{$apiName}' (ID: {$player->id})");
             if ($player->trashed()) $player->restore();
+            
             $c1 = $this->updateRegistry($player, $playerData, $apiDetailedPos, $season, $team);
             $c2 = $this->updateRoster($player, $season, $team, $playerMainRole, $apiDetailedPos);
-            return ($c1 || $c2) ? 'updated' : 'matched';
-        }
-
-        // 2. L2: Match Locale per Nome (Stessa Squadra)
-        $match = $this->findLocalMatch($apiName, $localRoster, $threshold);
-        if ($match) {
-            $player = Player::withTrashed()->find($match['player_id']);
-            if ($player) {
-                $this->syncLogger->info("  - [L2] Match Nome: '{$apiName}' -> '{$match['local_name']}' (ID: {$player->id})");
-                $c1 = $this->updateRegistry($player, $playerData, $apiDetailedPos, $season, $team);
-                $c2 = $this->updateRoster($player, $season, $team, $playerMainRole, $apiDetailedPos);
-                return ($c1 || $c2) ? 'updated' : 'matched';
-            }
-        }
-
-        // 3. L3: Global Name Match (Safe) - Cerca tra orfani evitando overlap di squadra nello stesso anno
-        $globalMatch = $this->findSafeGlobalMatch($apiName, $playerMainRole, $season, $team, $threshold);
-        if ($globalMatch) {
-            $player = Player::withTrashed()->find($globalMatch['player_id']);
-            if ($player) {
-                $this->syncLogger->info("  - [L3] Safe Global Match: '{$apiName}' -> '{$globalMatch['local_name']}' (ID: {$player->id}, Score: {$globalMatch['pct']}%)");
-                $c1 = $this->updateRegistry($player, $playerData, $apiDetailedPos, $season, $team);
-                $c2 = $this->updateRoster($player, $season, $team, $playerMainRole, $apiDetailedPos);
-                return ($c1 || $c2) ? 'updated' : 'matched';
-            }
-        }
-
-        // 4. L4: Create New (with SAFETY Catch)
-        // Controllo secco su ID API nel Registro per prevenire duplicati
-        $safetyPlayer = Player::withTrashed()->where('api_football_data_id', $apiId)->first();
-        if ($safetyPlayer) {
-            $this->syncLogger->warning("  - 🛡️ [L4 SAFETY] API ID {$apiId} trovato nel DB (ID {$safetyPlayer->id}). Evitato duplicato per '{$apiName}'.");
-            if ($safetyPlayer->trashed()) $safetyPlayer->restore();
-            $c1 = $this->updateRegistry($safetyPlayer, $playerData, $apiDetailedPos, $season, $team);
-            $c2 = $this->updateRoster($safetyPlayer, $season, $team, $playerMainRole, $apiDetailedPos);
-            return ($c1 || $c2) ? 'updated' : 'matched';
-        }
-
-        $this->syncLogger->warning("  - ⛔ [L4_REJECTED] Match Fallito per '{$apiName}'. Nessun calciatore nel database corrisponde con un punteggio >= {$threshold}%.");
-        $this->syncLogger->info("    - Procedo alla creazione di un NUOVO record nel registro (Step 7 - L4).");
-        $this->createNewPlayer($playerData, $season, $team, $playerMainRole, $apiDetailedPos);
-        return 'created';
-    }
-
-    private function findLocalMatch(string $apiName, $localRoster, float $threshold): ?array
-    {
-        $bestMatch = null;
-        $maxPct    = 0;
-
-        foreach ($localRoster as $item) {
-            if (!$item->player) continue;
-
-            $pct = $this->calculateSimilarity($item->player->name, $apiName);
-
-            if ($pct >= $threshold && $pct > $maxPct) {
-                $maxPct = $pct;
-                $bestMatch = [
-                    'local_name' => $item->player->name,
-                    'player_id'  => $item->player_id,
-                    'pct'        => round($pct, 1),
-                ];
-            }
-        }
-
-        return $bestMatch;
-    }
-
-    private function findSafeGlobalMatch(string $apiName, ?string $role, Season $season, Team $currentTeam, float $threshold): ?array
-    {
-        $bestMatch = null;
-        $maxPct    = 0;
-        $candidates = [];
-
-        // Se il ruolo è disponibile, cerchiamo prima in quel cassetto, altrimenti su tutto il pool
-        $shardsToScan = ($role && isset($this->orphanRegistryByRole[$role])) 
-            ? [$role => $this->orphanRegistryByRole[$role]] 
-            : $this->orphanRegistryByRole;
-
-        foreach ($shardsToScan as $roleKey => $roleShard) {
-            foreach ($roleShard as $p) {
-                $pct = $this->calculateSimilarity($p['name'], $apiName);
-
-                // Salviamo candidati vicini alla soglia per il log analitico
-                if ($pct > 50) {
-                    $candidates[] = ['name' => $p['name'], 'pct' => round($pct, 1)];
-                }
-
-                if ($pct >= $threshold && $pct > $maxPct) {
-                    $maxPct = $pct;
-                    $bestMatch = [
-                        'local_name' => $p['name'],
-                        'player_id'  => $p['id'],
-                        'pct'        => round($pct, 1),
-                    ];
-                }
-            }
-        }
-
-        if (!$bestMatch && !empty($candidates)) {
-            // Ordiniamo i candidati per score e prendiamo i top 3
-            usort($candidates, fn($a, $b) => $b['pct'] <=> $a['pct']);
-            $topCandidates = array_slice($candidates, 0, 3);
             
-            $logMsg = "    🔍 [MATCH_ANALYSIS] '{$apiName}' non matchato. Candidati vicini scartati: ";
-            foreach ($topCandidates as $c) {
-                $logMsg .= "'{$c['name']}' ({$c['pct']}%), ";
-            }
-            $this->syncLogger->info(rtrim($logMsg, ', ') . ". [Soglia richiesta: {$threshold}%]");
+            return ($c1 || $c2) ? 'updated' : 'matched';
         }
 
-        return $bestMatch;
+        // 4. [MATCH O NULLA] Policy
+        $this->syncLogger->warning("  - ⛔ [MATCH_FAILED] '{$apiName}' (API ID: {$apiId}) non trovato in anagrafica.");
+        $this->syncLogger->info("    - [SKIP] Policy 'Match o Nulla' attiva: non creo nuovi record zombie da API.");
+        
+        return 'skipped';
     }
 
     private function updateRegistry(Player $player, array $playerData, ?array $apiDetailedPos, Season $season, Team $team): bool
@@ -408,32 +322,34 @@ class PlayersHistoricalSync extends Command
 
     private function updateRoster(Player $player, Season $season, Team $team, ?string $playerMainRole, ?array $apiDetailedPos): bool
     {
-        // 1. Verifichiamo se il calciatore è già presente in QUALSIASI squadra per questa stagione
-        // (Spesso il Listone/Roster ha la priorità sulla squadra 'ufficiale' API per i prestiti)
-        $existingRoster = PlayerSeasonRoster::where('player_id', $player->id)
-            ->where('season_id', $season->id)
-            ->first();
+        // 1. [ERP-FAST] Verifica presenza in qualsiasi squadra (In-Memory)
+        $existingRoster = null;
+        foreach ($this->currentSeasonRosterMap as $tId => $rosters) {
+            if (isset($rosters[$player->id])) {
+                $existingRoster = $rosters[$player->id];
+                break;
+            }
+        }
 
         if ($existingRoster && $existingRoster->team_id !== $team->id) {
             // --- 🛡️ LOGICA PROPRIETÀ (CROSS-TEAM OWNERSHIP) ---
-            // Se lo troviamo nell'API di una squadra diversa da quella in cui gioca (DB), 
-            // allora questa squadra API è la PROPRIETÀ.
             if ($existingRoster->parent_team_id !== $team->id) {
-                $existingRoster->parent_team_id = $team->id;
-                $existingRoster->save();
+                if ($existingRoster->exists) {
+                    $existingRoster->parent_team_id = $team->id;
+                    $existingRoster->save();
+                }
 
-                // Aggiorniamo anche il registro principale se non ha proprietà definita
                 if (!$player->parent_team_id) {
                     $player->update(['parent_team_id' => $team->id]);
                 }
 
-                $this->syncLogger->info("    - 🛡️ [PROPERTY_LINK] {$player->name} (in {$existingRoster->team->short_name}) appartiene a {$team->short_name} via API.");
+                $this->syncLogger->info("    - 🛡️ [PROPERTY_LINK] {$player->name} appartiene a {$team->short_name} via API.");
                 return true;
             }
-            return false; // Esci: non vogliamo spostare il calciatore dalla sua squadra 'Listone'
+            return false;
         }
 
-        // 2. Procediamo con il sync o creazione normale nel team corrente
+        // 2. [ERP-FAST] Sync o Creazione
         $roster = $existingRoster ?? PlayerSeasonRoster::firstOrNew([
             'player_id' => $player->id,
             'season_id' => $season->id,
@@ -471,98 +387,6 @@ class PlayersHistoricalSync extends Command
 
     private function createNewPlayer(array $playerData, Season $season, Team $team, ?string $playerMainRole, ?array $apiDetailedPos)
     {
-        $player = Player::create([
-            'api_football_data_id' => $playerData['id'],
-            'name'                 => $playerData['name'],
-            'date_of_birth'        => isset($playerData['dateOfBirth']) ? Carbon::parse($playerData['dateOfBirth'])->format('Y-m-d') : null,
-            'role'                 => $playerMainRole,
-            'detailed_position'    => $apiDetailedPos,
-        ]);
-
-        PlayerSeasonRoster::create([
-            'player_id'         => $player->id,
-            'season_id'         => $season->id,
-            'team_id'           => $team->id,
-            'role'              => $playerMainRole,
-            'detailed_position' => $apiDetailedPos,
-            'initial_quotation' => 0,
-            'fanta_quotation'   => 0,
-            'fvm'               => 0,
-        ]);
-        
-        $this->syncLogger->info("  - ✅ [L4] CREAZIONE CALCIATORE: '{$player->name}' (API ID: {$playerData['id']}). Motivo: Nessun candidato idoneo trovato.");
-    }
-
-    private function calculateSimilarity(string $name1, string $name2): float
-    {
-        $tokens1 = $this->getNormalizedTokens($name1);
-        $tokens2 = $this->getNormalizedTokens($name2);
-        
-        if (empty($tokens1) || empty($tokens2)) return 0;
-
-        $shortSet = (count($tokens1) <= count($tokens2)) ? $tokens1 : $tokens2;
-        $longSet  = ($shortSet === $tokens1) ? $tokens2 : $tokens1;
-        $total    = count($shortSet);
-        $matches  = 0;
-
-        foreach ($shortSet as $token) {
-            foreach ($longSet as $k => $candidate) {
-                if ($token === $candidate || 
-                    (str_ends_with($token, '.') && str_starts_with($candidate, rtrim($token, '.'))) ||
-                    (str_ends_with($candidate, '.') && str_starts_with($token, rtrim($candidate, '.')))
-                ) {
-                    $matches++;
-                    unset($longSet[$k]);
-                    continue 2;
-                }
-            }
-            
-            // Fuzzy fallback
-            $bestFuzzy = 0;
-            $bestK = -1;
-            foreach ($longSet as $k => $candidate) {
-                similar_text($token, $candidate, $pct);
-                if ($pct > 80 && $pct > $bestFuzzy) {
-                    $bestFuzzy = $pct;
-                    $bestK = $k;
-                }
-            }
-            if ($bestK !== -1) {
-                $matches += ($bestFuzzy / 100);
-                unset($longSet[$bestK]);
-            }
-        }
-
-        $score = ($matches / $total) * 100;
-
-        // --- 🚀 BOOST SUBSTRING (Celik / Martinez L.) ---
-        $n1 = implode(' ', $tokens1);
-        $n2 = implode(' ', $tokens2);
-
-        if (str_contains($n1, $n2) || str_contains($n2, $n1)) {
-            $score += 20; // Bonus aggressivo per substring
-            if ($this->input && $this->option('debug')) {
-                $this->syncLogger->info("      ✨ [BOOST_SUBSTRING] Trovata corrispondenza parziale tra '{$name1}' e '{$name2}'. Boost +20%.");
-            }
-        }
-
-        return min(100, $score);
-    }
-
-    private function getNormalizedTokens(string $name): array
-    {
-        // 1. Normalizzazione caratteri speciali e diacritici (Ç, Š, etc.)
-        $n = Str::ascii(strtolower(trim($name)));
-        
-        // 2. Pulizia punteggiatura comune nei nomi
-        $n = str_replace(["'", '-', ',', '`'], ' ', $n);
-        
-        // 3. Rimozione stop-words o titoli (opzionale, ma utile per certi match)
-        $n = preg_replace('/[^a-z0-9\s\.]/', '', $n);
-        
-        // 4. Normalizzazione spazi
-        $n = preg_replace('/\s+/', ' ', $n);
-        
-        return array_values(array_filter(explode(' ', trim($n))));
+        // Metodo mantenuto per compatibilità, ma non più invocato dal sync API (Match o Nulla).
     }
 }

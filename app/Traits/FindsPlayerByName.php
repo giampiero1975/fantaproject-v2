@@ -10,8 +10,55 @@ use Illuminate\Support\Str;
 trait FindsPlayerByName
 {
     /**
-     * [ERP-FAST] Versione In-Memory del matching calciatori.
-     * Cerca un giocatore all'interno di una Collection pre-caricata, evitando query N+1.
+     * [ERP-FAST] Versione In-Memory ad alte prestazioni.
+     * Cerca un giocatore usando mappe indicizzate (API ID e Slug) per performance O(1).
+     *
+     * @param array $registryMap Mappa [api_id => Player]
+     * @param array $slugMap     Mappa [slug_nome => Player]
+     * @param array $criteria    ['name' => string, 'api_id' => int|null]
+     * @param int|null $teamId   Filtro per squadra
+     * @param string|null $role  Filtro per ruolo
+     */
+    public function findPlayerInMaps(array $registryMap, array $slugMap, array $criteria, ?int $teamId = null, ?string $role = null): ?Player
+    {
+        $apiId = $criteria['api_id'] ?? null;
+        $name  = trim((string) ($criteria['name'] ?? ''));
+
+        // 1. Match per API ID (O(1))
+        if ($apiId && isset($registryMap[$apiId])) {
+            return $registryMap[$apiId];
+        }
+
+        if ($name === '') return null;
+        $slug = Str::slug($name);
+
+        // 2. Match per Slug Esatto (O(1))
+        if (isset($slugMap[$slug])) {
+            $candidates = is_array($slugMap[$slug]) ? $slugMap[$slug] : [$slugMap[$slug]];
+            foreach ($candidates as $p) {
+                // Se abbiamo filtri team o ruolo, proviamo a restringere
+                if ($teamId && method_exists($p, 'rosters') && !$p->rosters->contains('team_id', $teamId)) continue;
+                if ($role && $p->role !== $role) continue;
+                return $p;
+            }
+        }
+
+        // 3. Fallback Similarità (O(N) - solo su subset se possibile)
+        // Nota: Qui usiamo la scansione lineare ma solo se i match diretti falliscono.
+        foreach ($slugMap as $s => $pGroup) {
+            $p = is_array($pGroup) ? $pGroup[0] : $pGroup;
+            if ($this->namesAreSimilar($name, $p->name)) {
+                if ($teamId && method_exists($p, 'rosters') && !$p->rosters->contains('team_id', $teamId)) continue;
+                if ($role && $p->role !== $role) continue;
+                return $p;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * [ERP-FAST] Versione In-Memory del matching calciatori (Legacy Collection).
      */
     public function findPlayerInCollection(\Illuminate\Support\Collection $players, array $criteria, ?int $teamId = null, ?string $role = null): ?Player
     {
@@ -19,11 +66,18 @@ trait FindsPlayerByName
         if ($name === '') return null;
 
         $nameLower = strtolower($name);
+        $apiId     = $criteria['api_id'] ?? null;
+
+        // --- L0: API ID ---
+        if ($apiId) {
+            $player = $players->firstWhere('api_football_data_id', $apiId);
+            if ($player) return $player;
+        }
 
         // --- L1: Esatto + Team ---
         if ($teamId) {
             $player = $players->filter(function($p) use ($name, $teamId) {
-                return $p->name === $name && $p->rosters->contains('team_id', $teamId);
+                return $p->name === $name && ($p->relationLoaded('rosters') ? $p->rosters->contains('team_id', $teamId) : true);
             })->first();
             if ($player) return $player;
         }
@@ -140,10 +194,17 @@ trait FindsPlayerByName
             $foundIndex = -1;
 
             foreach ($longSetCopy as $idx => $candidate) {
-                if ($tokenToFind === $candidate || 
-                    (str_ends_with($tokenToFind, '.') && str_starts_with($candidate, rtrim($tokenToFind, '.'))) ||
-                    (str_ends_with($candidate, '.') && str_starts_with($tokenToFind, rtrim($candidate, '.')))
-                ) {
+                // Protezione: Non permettere match di un'iniziale se è l'unico token (es. Nani vs N.)
+                $isInitialMatch = (str_ends_with($tokenToFind, '.') && str_starts_with($candidate, rtrim($tokenToFind, '.'))) ||
+                                 (str_ends_with($candidate, '.') && str_starts_with($tokenToFind, rtrim($candidate, '.')));
+                
+                if ($tokenToFind === $candidate) {
+                    $foundIndex = $idx;
+                    break;
+                }
+
+                // Se è un match di iniziale, lo accettiamo solo se il nome ha più di un token
+                if ($isInitialMatch && count($tokens1) > 1 && count($tokens2) > 1) {
                     $foundIndex = $idx;
                     break;
                 }
@@ -153,7 +214,9 @@ trait FindsPlayerByName
                 $bestScore = 0;
                 foreach ($longSetCopy as $idx => $candidate) {
                     similar_text($tokenToFind, $candidate, $percent);
-                    if ($percent > 85 && $percent > $bestScore) {
+                    // Per i nomi corti (< 4 char), alziamo la soglia al 95%
+                    $threshold = (strlen($tokenToFind) < 4) ? 95 : 85;
+                    if ($percent > $threshold && $percent > $bestScore) {
                         $bestScore = $percent;
                         $foundIndex = $idx;
                     }

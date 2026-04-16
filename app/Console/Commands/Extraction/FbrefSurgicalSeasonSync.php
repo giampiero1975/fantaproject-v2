@@ -82,6 +82,7 @@ class FbrefSurgicalSeasonSync extends Command
 
         $summary = "🏁 Operazione conclusa per tutta la stagione. Processati: {$totalProcessed}, Aggiornati: {$totalUpdated}";
         $this->info("\n" . $summary);
+        $this->log($summary);
 
         $importLog->update([
             'status' => $this->option('dry-run') ? 'simulato' : 'successo',
@@ -97,11 +98,12 @@ class FbrefSurgicalSeasonSync extends Command
     {
         $this->warn("\n------------------------------------------------");
         $this->info("⚽️ SQUADRA: {$team->name}");
+        $this->log("⚽️ SQUADRA: {$team->name}");
 
         // 2. Gap Analysis
         $rosterCount = PlayerSeasonRoster::where('team_id', $team->id)->where('season_id', $season->id)->count();
         $missingCount = PlayerSeasonRoster::where('team_id', $team->id)->where('season_id', $season->id)
-            ->whereHas('player', fn($q) => $q->whereNull('fbref_id'))
+            ->whereHas('player', fn($q) => $q->withTrashed()->whereNull('fbref_id'))
             ->count();
 
         if ($missingCount === 0 && !$this->option('force')) {
@@ -187,6 +189,7 @@ class FbrefSurgicalSeasonSync extends Command
         );
 
         $this->line("✨ Match: {$syncResults['matched']} | Aggiornati: {$syncResults['updated']} | Noise (Ignorati): {$syncResults['noise']}");
+        $this->log("✨ Match: {$syncResults['matched']} | Aggiornati: {$syncResults['updated']} | Noise: {$syncResults['noise']}");
 
         return $syncResults;
     }
@@ -217,5 +220,10 @@ class FbrefSurgicalSeasonSync extends Command
             return (int) $m[1];
         }
         return 0;
+    }
+
+    protected function log(string $message, string $level = 'info'): void
+    {
+        Log::channel('fbref_surgical')->$level($message);
     }
 }

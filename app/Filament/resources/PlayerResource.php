@@ -143,7 +143,7 @@ class PlayerResource extends Resource
                                     ->preload(),
                                 Forms\Components\Select::make('team_id')
                                     ->label('Squadra')
-                                    ->relationship('latestRoster.team', 'name')
+                                    ->options(\App\Models\Team::query()->orderBy('name')->pluck('name', 'id'))
                                     ->searchable()
                                     ->preload(),
                             ]),

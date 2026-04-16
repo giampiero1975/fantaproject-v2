@@ -11,10 +11,12 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('historical_player_stats', function (Blueprint $table) {
-            $table->foreign(['player_id'])->references(['id'])->on('players')->onUpdate('restrict')->onDelete('cascade');
-            $table->foreign(['team_id'])->references(['id'])->on('teams')->onUpdate('restrict')->onDelete('set null');
-        });
+        if (Schema::hasTable('historical_player_stats')) {
+            Schema::table('historical_player_stats', function (Blueprint $table) {
+                $table->foreign('player_id')->references('id')->on('players')->onUpdate('restrict')->onDelete('cascade');
+                $table->foreign('team_id')->references('id')->on('teams')->onUpdate('restrict')->onDelete('set null');
+            });
+        }
     }
 
     /**

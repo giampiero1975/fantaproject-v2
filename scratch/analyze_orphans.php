@@ -1,33 +1,45 @@
 <?php
 
-require __DIR__ . '/vendor/autoload.php';
-$app = require_once __DIR__ . '/bootstrap/app.php';
+use Illuminate\Support\Facades\DB;
+
+require __DIR__ . '/../vendor/autoload.php';
+$app = require_once __DIR__ . '/../bootstrap/app.php';
 $kernel = $app->make(Illuminate\Contracts\Console\Kernel::class);
 $kernel->bootstrap();
 
-use App\Models\Player;
-use App\Models\PlayerSeasonRoster;
+echo "🔍 ANALISI PROFONDA ORFANI E VINCOLI\n";
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n";
 
-$orphans = PlayerSeasonRoster::whereDoesntHave('player')->get();
-echo "Total orphans in player_season_roster: " . $orphans->count() . "\n";
+// 1. Verifica FOREIGN_KEY_CHECKS
+$fkChecks = DB::select("SELECT @@FOREIGN_KEY_CHECKS as fk_checks")[0]->fk_checks;
+echo "1) FOREIGN_KEY_CHECKS: " . ($fkChecks ? 'ATTIVATO' : 'DISATTIVATO') . "\n";
 
-$uniqueMissingPlayerIds = $orphans->pluck('player_id')->unique()->filter()->values();
-echo "Total unique player_id missing: " . $uniqueMissingPlayerIds->count() . "\n";
+// 2. Mappatura orfani Roster
+$rosterOrphans = DB::table('player_season_roster')
+    ->whereNotExists(function ($query) {
+        $query->select(DB::raw(1))
+              ->from('players')
+              ->whereColumn('players.id', 'player_season_roster.player_id');
+    })
+    ->get(['player_id', 'id']);
 
-$softDeletedCount = Player::onlyTrashed()->whereIn('id', $uniqueMissingPlayerIds)->count();
-echo "Soft-deleted players found for these orphans: " . $softDeletedCount . "\n";
+echo "2) Orfani in 'player_season_roster': " . $rosterOrphans->count() . "\n";
 
-$completelyMissingCount = $uniqueMissingPlayerIds->count() - $softDeletedCount;
-echo "Players completely missing from DB: " . $completelyMissingCount . "\n";
+// 3. Mappatura orfani Stats
+$statsOrphans = DB::table('historical_player_stats')
+    ->whereNotExists(function ($query) {
+        $query->select(DB::raw(1))
+              ->from('players')
+              ->whereColumn('players.id', 'historical_player_stats.player_id');
+    })
+    ->get(['player_id', 'id']);
 
-// Distribuzione per stagione
-$bySeason = $orphans->groupBy('season_id')->map->count();
-foreach ($bySeason as $seasonId => $count) {
-    $year = \App\Models\Season::find($seasonId)->season_year ?? 'Unknown';
-    echo "Season $year (ID $seasonId): $count orphans\n";
+echo "3) Orfani in 'historical_player_stats': " . $statsOrphans->count() . "\n";
+
+if ($rosterOrphans->count() > 0 || $statsOrphans->count() > 0) {
+    echo "\n⚠️ RILEVATA INCOERENZA DI INTEGRITÀ\n";
+    echo "Il database riporta vincoli ON DELETE CASCADE attivi, ma i dati sono orfani.\n";
+    echo "Questo suggerisce che i dati sono stati caricati/manipolati con FK Checks disattivati.\n";
 }
 
-// Esempio di calciatori mancanti (ID)
-if ($uniqueMissingPlayerIds->count() > 0) {
-    echo "Sample Missing IDs: " . $uniqueMissingPlayerIds->take(10)->implode(', ') . "\n";
-}
+echo "\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n";

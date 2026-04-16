@@ -413,10 +413,12 @@ class FbrefScrapingService
             'log' => []
         ];
 
-        // Recupero Roster Locale per Matching
-        $localPlayers = \App\Models\Player::whereHas('rosters', function ($q) use ($teamId, $seasonId) {
-            $q->where('team_id', $teamId)->where('season_id', $seasonId);
-        })->get();
+        // Recupero Roster Locale per Matching (ESTESO: include soft-deleted e record da recuperare)
+        $localPlayers = \App\Models\Player::withTrashed()
+            ->whereHas('rosters', function ($q) use ($teamId, $seasonId) {
+                $q->where('team_id', $teamId)->where('season_id', $seasonId);
+            })
+            ->get();
 
         foreach ($playersData as $sPlayer) {
             $sName = $sPlayer['Player'] ?? null;
