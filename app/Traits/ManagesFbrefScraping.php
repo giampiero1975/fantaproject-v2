@@ -107,21 +107,60 @@ trait ManagesFbrefScraping
         }
     }
     
-    protected function saveDebugHtml(Crawler $crawler, string $fileName): void
+    /**
+     * Salvataggio chirurgico dell'HTML per debug e "Black Box".
+     */
+    protected function saveDebugHtml(string $html, string $teamName, string $season, string $type = 'team_stats'): string
     {
-        $debugPath = storage_path('app/debug_html');
-        if (!File::isDirectory($debugPath)) {
-            File::makeDirectory($debugPath, 0755, true);
+        $basePath = "scraping/fbref/html/{$season}/" . Str::slug($teamName);
+        $directory = storage_path("logs/{$basePath}");
+        
+        if (!File::exists($directory)) {
+            File::makeDirectory($directory, 0755, true);
         }
-        $filename = Str::slug($fileName) . '_' . date('Y-m-d_H-i-s') . '.html';
-        File::put($debugPath . '/' . $filename, $crawler->html());
+
+        $filename = "{$type}_" . date('Ymd_Hi') . ".html";
+        $fullPath = "{$directory}/{$filename}";
+        
+        File::put($fullPath, $html);
+        return $fullPath;
+    }
+
+    /**
+     * Salvataggio chirurgico del JSON estratto.
+     */
+    protected function saveDebugJson(array $data, string $teamName, string $season, string $type = 'team_stats'): string
+    {
+        $basePath = "scraping/fbref/json/{$season}/" . Str::slug($teamName);
+        $directory = storage_path("logs/{$basePath}");
+
+        if (!File::exists($directory)) {
+            File::makeDirectory($directory, 0755, true);
+        }
+
+        $filename = "{$type}_" . date('Ymd_Hi') . ".json";
+        $fullPath = "{$directory}/{$filename}";
+
+        File::put($fullPath, json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+        return $fullPath;
     }
 
     protected function scrapeTable(Crawler $crawler, string $tableId, array $columns): array
     {
-        $table = $crawler->filter("table#{$tableId}");
+        // Selettore flessibile per gestire ID dinamici (es. stats_standard_11)
+        $table = $crawler->filter("table[id^='{$tableId}']");
         if ($table->count() === 0) return [];
 
         return $this->parseTableWithInvertedMap($table, $columns);
+    }
+
+    /**
+     * Svela il contenuto HTML commentato da FBref.
+     */
+    public function uncommentHiddenHtml(string $html): string
+    {
+        return preg_replace_callback('/<!--(.*?<table.*?)-->/s', function($m) {
+            return $m[1];
+        }, $html);
     }
 }

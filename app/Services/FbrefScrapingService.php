@@ -50,6 +50,9 @@ class FbrefScrapingService
         try {
             // 1. MOTORE (dal Trait)
             $crawler = $this->fetchPageWithProxy($this->targetUrl);
+            
+            // Salvataggio Debug (HTML)
+            $this->saveDebugHtml($crawler->html(), basename($this->targetUrl), "Debug");
         } catch (\Exception $e) {
             Log::error("Errore (scrapeTeamStats) durante la richiesta al Proxy API: " . $e->getMessage());
             return [
@@ -91,6 +94,9 @@ class FbrefScrapingService
         }
 
         Log::info("Scraping (scrapeTeamStats) completato con successo per: {$this->targetUrl}");
+
+        // Salvataggio Debug (JSON)
+        $this->saveDebugJson($allTablesData, basename($this->targetUrl), "Debug");
         return $allTablesData;
     }
 
@@ -376,11 +382,14 @@ class FbrefScrapingService
             ];
         }
 
-        // Usiamo il metodo 'scrapeTable' che è sicuramente presente nel tuo Trait
-        foreach ($schema as $tableKey => $tableConfig) {
-            $tableData = $this->scrapeTable($crawler, $tableConfig['id'], $tableConfig['columns']);
+        // Usiamo il metodo 'scrapeTable' supportando sia il formato flat che quello nestato
+        foreach ($schema as $key => $config) {
+            $tableId = $config['id'] ?? $key; // Fallback alla chiave se 'id' non esiste
+            $columns = $config['columns'] ?? $config; // Fallback al valore se 'columns' non esiste
+            
+            $tableData = $this->scrapeTable($crawler, $tableId, $columns);
             if (! empty($tableData)) {
-                $data[$tableKey] = $tableData;
+                $data[$key] = $tableData;
             }
         }
 
