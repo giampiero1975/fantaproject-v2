@@ -30,74 +30,48 @@ class FbrefScrapingService
      * ORA QUESTA FUNZIONE È "MAGRA":
      * Chiama solo le funzioni del Trait (Motore + Parser)
      */
-    public function scrapeTeamStats(): array
+    public function scrapeTeamStats(bool $render = false): array
     {
         if (empty($this->targetUrl)) {
             Log::error('URL della squadra non impostato.');
-            return [
-                'error' => 'URL della squadra non impostato.'
-            ];
+            return ['error' => 'URL della squadra non impostato.'];
         }
 
         $teamStatsSchema = config('fbref_schemas.team_player_stats', []);
         if (empty($teamStatsSchema)) {
             Log::error('Schema "team_player_stats" non trovato.');
-            return [
-                'error' => 'Schema "team_player_stats" non trovato.'
-            ];
+            return ['error' => 'Schema "team_player_stats" non trovato.'];
         }
 
         try {
-            // 1. MOTORE (dal Trait)
-            $crawler = $this->fetchPageWithProxy($this->targetUrl);
+            // 1. MOTORE (dal Trait): Recuperiamo il BODY grezzo per lo svelamento
+            $rawHtml = $this->fetchRawHtmlWithProxy($this->targetUrl, $render);
+
+            // 2. SVELAMENTO: Operiamo sulla stringa originale (Molto più robusto)
+            $uncommentedHtml = $this->uncommentHiddenHtml($rawHtml);
             
-            // Salvataggio Debug (HTML)
-            $this->saveDebugHtml($crawler->html(), basename($this->targetUrl), "Debug");
+            // Salvataggio Black Box HTML (Debug)
+            $this->saveDebugHtml($uncommentedHtml, 'team_stats', '2024', 'raw');
+            
+            // 3. PARSING: Usiamo la logica centralizzata basata sugli schemi
+            $allTablesData = $this->parseDataFromHtml($uncommentedHtml, 'team_player_stats');
+
+            if (empty($allTablesData)) {
+                Log::error("Nessun dato valido trovato per URL: {$this->targetUrl}");
+                return ['error' => 'Nessun dato valido estratto.'];
+            }
+
+            Log::info("Scraping (scrapeTeamStats) completato con successo per: {$this->targetUrl}");
+            
+            // Salvataggio Debug (JSON)
+            $this->saveDebugJson($allTablesData, basename($this->targetUrl), "Debug");
+            
+            return $allTablesData;
+
         } catch (\Exception $e) {
-            Log::error("Errore (scrapeTeamStats) durante la richiesta al Proxy API: " . $e->getMessage());
-            return [
-                'error' => 'Errore Proxy API: ' . $e->getMessage()
-            ];
+            Log::error("Errore (scrapeTeamStats): " . $e->getMessage());
+            return ['error' => 'Errore Scraping: ' . $e->getMessage()];
         }
-
-        $allTablesData = [];
-
-        $crawler->filter('table.stats_table')->each(function (Crawler $tableNode) use (&$allTablesData, $teamStatsSchema) {
-            $tableId = $tableNode->attr('id');
-            if (empty($tableId))
-                return;
-
-            $cleanTableId = null;
-            foreach (array_keys($teamStatsSchema) as $schemaKey) {
-                if (str_starts_with($tableId, $schemaKey)) {
-                    $cleanTableId = $schemaKey;
-                    break;
-                }
-            }
-
-            if ($cleanTableId) {
-                $columnMap = $teamStatsSchema[$cleanTableId];
-                Log::info("Tabella '{$tableId}' trovata e mappata (Schema: '{$cleanTableId}').");
-
-                // 2. PARSER (dal Trait)
-                $allTablesData[$cleanTableId] = $this->parseTableWithInvertedMap($tableNode, $columnMap);
-            } else {
-                Log::warning("Tabella '{$tableId}' (Pulito: '{$cleanTableId}') trovata ma ignorata.");
-            }
-        });
-
-        if (empty($allTablesData)) {
-            Log::error("Nessun dato valido trovato per URL: {$this->targetUrl}");
-            return [
-                'error' => 'Nessun dato valido estratto.'
-            ];
-        }
-
-        Log::info("Scraping (scrapeTeamStats) completato con successo per: {$this->targetUrl}");
-
-        // Salvataggio Debug (JSON)
-        $this->saveDebugJson($allTablesData, basename($this->targetUrl), "Debug");
-        return $allTablesData;
     }
 
     /**
@@ -352,11 +326,307 @@ class FbrefScrapingService
     }
 
     /**
+     * IL CERVELLO: Sceglie automaticamente tra Modalità DIRETTA e PIPELINE.
+     */
+    public function dispatchScrape(array $urls, array $context = [])
+    {
+        $count = count($urls);
+        $mode = $count <= 3 ? 'direct' : 'pipeline';
+        
+        // Creazione record Job SEMPRE (Richiesta Socio)
+        $proxyManager = app(ProxyManagerService::class);
+        $proxy = $proxyManager->getActiveProxy();
+        
+        $jobId = $mode === 'direct' ? 'direct_' . uniqid() : 'pending_' . uniqid();
+        
+        $job = \App\Models\ScrapingJob::create([
+            'job_id' => $jobId,
+            'proxy_service_id' => $proxy?->id ?? 1,
+            'mode' => $mode,
+            'status' => 'pending',
+            'service' => $mode === 'direct' ? 'ScraperAPI_Direct' : 'ScraperAPI_Pipeline',
+            'payload' => $urls
+        ]);
+
+        if ($mode === 'direct') {
+            return $this->executeDirectScrape($urls, $job, $context);
+        }
+
+        return $this->executePipelineScrape($urls, $job, $context);
+    }
+
+    /**
+     * Modalità DIRETTA (Sincrona)
+     */
+    private function executeDirectScrape(array $urls, \App\Models\ScrapingJob $job, array $context)
+    {
+        $results = [];
+        $startTime = microtime(true);
+        $totalCredits = 0;
+
+        foreach ($urls as $url) {
+            $job->update(['status' => 'running']);
+            $response = $this->testProxyCall($url, $context['render'] ?? false);
+            
+            if ($response->successful()) {
+                $credits = (float) $response->header('sa-credit-cost', 10);
+                $totalCredits += $credits;
+                
+                // Aggiorniamo il ProxyManager per la persistenza del costo
+                app(ProxyManagerService::class)->setLastRequestCost($credits);
+
+                $this->processTeamImport(
+                    $response->body(), 
+                    $url, 
+                    $context['team_id'], 
+                    $context['season_year'],
+                    [
+                        'latency_ms' => round((microtime(true) - $startTime) * 1000),
+                        'sa_headers' => $response->headers()
+                    ]
+                );
+
+                $results[$url] = 'success';
+            } else {
+                $results[$url] = 'failed';
+            }
+        }
+
+        $job->update([
+            'status' => count(array_filter($results, fn($r) => $r === 'success')) > 0 ? 'finished' : 'failed',
+            'duration' => round(microtime(true) - $startTime, 2),
+            'credits_spent' => $totalCredits,
+            'processed_at' => now()
+        ]);
+
+        return $results;
+    }
+
+    /**
+     * Modalità PIPELINE (Asincrona via Webhook)
+     */
+    private function executePipelineScrape(array $urls, \App\Models\ScrapingJob $job, array $context)
+    {
+        $proxyManager = app(\App\Services\ProxyManagerService::class);
+        $proxy = $job->proxyService;
+        
+        // Costruzione URL Webhook con segreto
+        $webhookUrl = config('app.url') . '/api/scraper-webhook?secret=' . env('SCRAPER_WEBHOOK_SECRET');
+
+        $response = \Illuminate\Support\Facades\Http::timeout(60)->post('https://async.scraperapi.com/batchjobs', [
+            'apiKey' => $proxy->api_key,
+            'urls' => $urls,
+            'premium' => true,
+            'max_cost' => 10,
+            'callback' => [
+                'type' => 'webhook',
+                'url' => $webhookUrl
+            ],
+        ]);
+
+        if ($response->successful()) {
+            $data = $response->json();
+            $idData = is_array($data) && isset($data[0]) ? $data[0] : $data;
+            
+            $job->update([
+                'job_id' => $idData['id'] ?? $job->job_id,
+            ]);
+            
+            return $job;
+        }
+
+        $job->update(['status' => 'failed']);
+        throw new \Exception("Fallimento inizializzazione Pipeline: " . $response->body());
+    }
+
+    /**
+     * Processa l'importazione di una squadra, gestendo anagrafiche e statistiche.
+     * 
+     * @param string $html
+     * @param string $url
+     * @param int $teamId
+     * @param string $seasonYear
+     * @param array $options Opzioni aggiuntive (is_surgical, dry_run, etc.)
+     * @return bool
+     */
+    public function processTeamImport(string $html, string $url, int $teamId, string $seasonYear, array $options = []): bool
+    {
+        $uncommentedHtml = $this->uncommentHiddenHtml($html);
+        $scrapedData = $this->parseDataFromHtml($uncommentedHtml, 'team_player_stats');
+        
+        if (empty($scrapedData)) {
+            Log::error("[FbrefScrapingService] Nessun dato estratto per Team ID {$teamId}");
+            return false;
+        }
+
+        $aggregated = $this->aggregatePlayerData($scrapedData);
+        $isSurgical = $options['is_surgical'] ?? false;
+        $dryRun = $options['dry_run'] ?? false;
+        
+        // Salvataggio Artefatti (Black Box)
+        $this->saveArtifacts($html, $url, $teamId, $seasonYear, $aggregated, $options);
+
+        // Risoluzione Stagione
+        $season = \App\Models\Season::where('season_year', $seasonYear)->first();
+        if (!$season) throw new \Exception("Stagione {$seasonYear} non trovata");
+        $isPastSeason = (int)$season->season_year < 2024;
+
+        $stats = ['matched' => 0, 'updated' => 0, 'skipped' => 0];
+
+        foreach ($aggregated as $fbrefName => $data) {
+            try {
+                $fbrefId = $data['fbref_id_extracted'] ?? null;
+                $fbrefUrl = $data['fbref_url_extracted'] ?? null;
+                
+                // 1. MATCHING CHIRURGICO (Esteso a withTrashed)
+                $player = $this->findLocalPlayer($fbrefName, $fbrefId, $teamId);
+
+                // 2. ECCEZIONE LOST-ONE (Stagioni Storiche)
+                if (!$player && $isPastSeason) {
+                    $localPlayers = \App\Models\Player::withTrashed()
+                        ->whereHas('rosters', function ($q) use ($teamId, $season) {
+                            $q->where('team_id', $teamId)->where('season_id', $season->id);
+                        })->get();
+
+                    foreach ($localPlayers as $lp) {
+                        if ($this->namesAreSimilar((string)$fbrefName, (string)$lp->name)) {
+                            $player = $lp;
+                            break;
+                        }
+                    }
+                }
+
+                if (!$player) {
+                    Log::warning("[FbrefScrapingService] Giocatore non trovato (skipped): {$fbrefName}");
+                    $stats['skipped']++;
+                    continue;
+                }
+
+                $stats['matched']++;
+
+                // [PROTOCOLLO SICUREZZA] Regola No Overwrite per IDs
+                if (!empty($fbrefId)) {
+                    if (empty($player->fbref_id)) {
+                        // Caso 1: Campo NULL, procediamo all'aggiornamento
+                        if (!$dryRun) {
+                            $player->update([
+                                'fbref_id' => $fbrefId,
+                                'fbref_url' => $fbrefUrl ?? $player->fbref_url
+                            ]);
+                        }
+                        $stats['updated']++;
+                    } elseif ($player->fbref_id !== $fbrefId) {
+                        // Caso 2: Mismatch presente, NON sovrascriviamo, logghiamo Warning
+                        Log::warning("[Fbref Match Collision] Mismatch per '{$player->name}' (ID: {$player->id}). DB: {$player->fbref_id} | Scraper: {$fbrefId}. Aggiornamento annullato per sicurezza.");
+                    }
+                }
+
+                // 3. Salvataggio Statistiche (Saltato se is_surgical)
+                if (!$isSurgical) {
+                    $dataToSave = $this->prepareLayeredData($data);
+                    $dataToSave['season_id'] = $season->id;
+                    $dataToSave['deleted_at'] = null;
+
+                    if (!$dryRun) {
+                        \App\Models\PlayerFbrefStat::withTrashed()->updateOrCreate(
+                            [
+                                'player_id' => $player->id,
+                                'team_id' => $teamId,
+                                'season_id' => $season->id,
+                            ],
+                            $dataToSave
+                        );
+                    }
+                }
+
+            } catch (\Exception $e) {
+                Log::error("[FbrefScrapingService] Errore critico per player {$fbrefName}: " . $e->getMessage());
+                continue;
+            }
+        }
+
+        Log::info("[FbrefScrapingService] Processamento completato per Team {$teamId} ({$seasonYear}). Risultati: ", $stats);
+        return true;
+    }
+
+    private function aggregatePlayerData(array $scrapedData): array
+    {
+        $aggregated = [];
+        foreach ($scrapedData as $rows) {
+            foreach ($rows as $row) {
+                $key = $row['fbref_id_extracted'] ?? ($row['Player'] ?? null);
+                if (!$key) continue;
+
+                if (!isset($aggregated[$key])) {
+                    $aggregated[$key] = $row;
+                } else {
+                    foreach ($row as $field => $value) {
+                        if (!array_key_exists($field, $aggregated[$key]) || empty($aggregated[$key][$field])) {
+                            $aggregated[$key][$field] = $value;
+                        }
+                    }
+                }
+            }
+        }
+        return $aggregated;
+    }
+
+    private function findLocalPlayer(string $name, ?string $fbrefId, int $teamId): ?\App\Models\Player
+    {
+        if ($fbrefId) {
+            $p = \App\Models\Player::where('fbref_id', $fbrefId)->first();
+            if ($p) return $p;
+        }
+        return $this->findPlayer(['name' => $name], \App\Models\Team::find($teamId));
+    }
+
+    private function prepareLayeredData(array $data): array
+    {
+        $layered = [];
+        $layer1Columns = [
+            'games', 'games_starts', 'minutes', 'minutes_90s',
+            'goals', 'assists', 'cards_yellow', 'cards_red'
+        ];
+        
+        foreach ($layer1Columns as $col) {
+            if (isset($data[$col])) {
+                $cleanValue = is_string($data[$col]) ? str_replace(',', '', $data[$col]) : $data[$col];
+                $layered[$col] = ($cleanValue === '' || $cleanValue === null) ? null : $cleanValue;
+            }
+        }
+        $layered['data_team'] = $data;
+        return $layered;
+    }
+
+    private function saveArtifacts(string $html, string $url, int $teamId, string $seasonYear, array $json, ?array $costAnalysis = null): void
+    {
+        $timestamp = now()->format('Ymd_His');
+        $fileName = "team_{$teamId}_{$timestamp}";
+        
+        // HTML
+        $htmlPath = $this->saveDebugHtml($html, "team_{$teamId}", $seasonYear, 'async_team');
+        
+        // JSON
+        $jsonPath = $this->saveDebugJson($json, "team_{$teamId}", $seasonYear, 'async_team');
+
+        Log::debug("[FbrefScrapingService] Artefatti salvati per Team {$teamId}");
+    }
+
+    /**
      * Ponte pubblico per il test del proxy e l'uso esterno
      */
-    public function testProxyCall(string $url)
+    public function testProxyCall(string $url, bool $render = false)
     {
-        return $this->fetchPageWithProxy($url);
+        $proxyManager = app(\App\Services\ProxyManagerService::class);
+        $proxy = $proxyManager->getActiveProxy();
+        
+        if (!$proxy) {
+            throw new \Exception("Nessun proxy attivo trovato");
+        }
+
+        $this->lastProxy = $proxy; // PERSISTENZA PER AUDIT
+        $proxyUrl = $proxyManager->getProxyUrl($proxy, $url, ['render' => $render]);
+        return \Illuminate\Support\Facades\Http::timeout(120)->withoutVerifying()->get($proxyUrl);
     }
 
     public function getRemainingCredits()
@@ -412,7 +682,16 @@ class FbrefScrapingService
     /**
      * Sincronizza i dati dei calciatori con il database (Mapping).
      */
-    public function syncPlayersData(array $playersData, int $teamId, int $seasonId, bool $dryRun = false, bool $rigidMapping = false): array
+    /**
+     * Sincronizza i dati dei calciatori con il database (Mapping Rose).
+     * 
+     * @param array $playersData
+     * @param int $teamId
+     * @param int $seasonId
+     * @param bool $dryRun
+     * @return array
+     */
+    public function syncPlayersData(array $playersData, int $teamId, int $seasonId, bool $dryRun = false): array
     {
         $results = [
             'total' => count($playersData),
@@ -422,7 +701,10 @@ class FbrefScrapingService
             'log' => []
         ];
 
-        // Recupero Roster Locale per Matching (ESTESO: include soft-deleted e record da recuperare)
+        $season = \App\Models\Season::find($seasonId);
+        $isPastSeason = $season && (int)$season->season_year < 2024;
+
+        // Recupero Roster Locale (Include soft-deleted per copertura totale)
         $localPlayers = \App\Models\Player::withTrashed()
             ->whereHas('rosters', function ($q) use ($teamId, $seasonId) {
                 $q->where('team_id', $teamId)->where('season_id', $seasonId);
@@ -439,51 +721,69 @@ class FbrefScrapingService
             $bestMatch = null;
 
             foreach ($localPlayers as $lPlayer) {
-                // 1. Match Esatto per ID (se già mappato)
-                if ($lPlayer->fbref_id === $sId) {
+                // Precision Match via fbref_id
+                if (!empty($lPlayer->fbref_id) && $lPlayer->fbref_id === $sId) {
                     $bestMatch = $lPlayer;
                     break;
                 }
-
-                // 2. Match via Helper di Progetto
-                if ($this->namesAreSimilar($sName, $lPlayer->name)) {
+                // Fuzzy Match via Nome
+                if ($this->namesAreSimilar((string)$sName, (string)$lPlayer->name)) {
                     $bestMatch = $lPlayer;
                     break;
                 }
             }
 
             if ($bestMatch) {
-                // LOGICA RIGID MAPPING (SST):
-                // Se attivato, scartiamo il match se il giocatore locale non ha ID FBref (è un nuovo mapping) 
-                // MA mancano gli ID di riferimento (Listone o API Football).
-                if ($rigidMapping && empty($bestMatch->fbref_id)) {
-                    if (empty($bestMatch->fanta_platform_id) && empty($bestMatch->api_football_data_id)) {
-                        $results['noise']++;
-                        $results['log'][] = "🚫 RIGID SKIP: '{$sName}' -> '{$bestMatch->name}' (Mancano ID di riferimento)";
-                        continue;
-                    }
-                }
-
                 $results['matched']++;
-                $isNewMapping = ($bestMatch->fbref_id !== $sId || $bestMatch->fbref_url !== $sUrl);
                 
-                if ($isNewMapping) {
+                // [PROTOCOLLO SICUREZZA] Regola No Overwrite
+                if (empty($bestMatch->fbref_id)) {
                     $results['updated']++;
                     if (!$dryRun) {
                         $bestMatch->update(['fbref_id' => $sId, 'fbref_url' => $sUrl]);
-                        $results['log'][] = "✅ MATCH & UPDATE: '{$sName}' -> '{$bestMatch->name}'";
+                        $results['log'][] = "✅ MAPPATO: '{$sName}' -> '{$bestMatch->name}' (ID: {$sId})";
                     } else {
-                        $results['log'][] = "🧪 [DRY-RUN] WOULD UPDATE: '{$sName}' -> '{$bestMatch->name}'";
+                        $results['log'][] = "🧪 [DRY-RUN] MAPPATURA: '{$sName}' -> '{$bestMatch->name}'";
                     }
+                } elseif ($bestMatch->fbref_id !== $sId) {
+                    $results['log'][] = "⚠️ MISMATCH: '{$sName}' ha ID {$sId} su FBref, ma DB ha {$bestMatch->fbref_id}. Salto aggiornamento.";
+                    Log::warning("[Fbref Sync Mismatch] Impossibile aggiornare '{$bestMatch->name}'. Campo già popolato e diverso.");
                 } else {
-                    $results['log'][] = "ℹ️ ALREADY MAPPED: '{$sName}' -> '{$bestMatch->name}'";
+                    $results['log'][] = "ℹ️ GIA' MAPPATO: '{$sName}'";
                 }
             } else {
                 $results['noise']++;
-                $results['log'][] = "❓ NO MATCH (Noise): '{$sName}'";
+                $results['log'][] = "❓ NO MATCH: '{$sName}'";
             }
         }
 
         return $results;
+    }
+
+
+    /**
+     * Algoritmo di similarità per matching "Lostone Storico"
+     */
+    private function namesAreSimilar(string $name1, string $name2): bool
+    {
+        $clean1 = $this->normalizeName($name1);
+        $clean2 = $this->normalizeName($name2);
+
+        // Caso 1: Match esatto post-norm
+        if ($clean1 === $clean2) return true;
+
+        // Caso 2: Similarità testuale (Soglia 80% per i giocatori)
+        similar_text($clean1, $clean2, $percent);
+
+        return $percent >= 80;
+    }
+
+    private function normalizeName(string $name): string
+    {
+        // Rimuove accenti e trasforma in minuscole
+        $name = strtolower(\Illuminate\Support\Str::ascii($name));
+        // Rimuove punteggiatura e spazi extra
+        $name = preg_replace('/[^a-z0-9 ]/', '', $name);
+        return trim($name);
     }
 }

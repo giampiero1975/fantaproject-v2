@@ -15,197 +15,147 @@ use Illuminate\Support\Str;
 
 class FbrefSurgicalTeamSync extends Command
 {
+    /**
+     * @var string
+     */
     protected $signature = 'fbref:surgical-team-sync 
-                            {team_id : ID della squadra nel database} 
+                            {team_id? : ID della squadra nel database} 
                             {--season= : Anno d\'inizio della stagione (es. 2024)}
+                            {--all : Sincronizza tutti i team della stagione}
                             {--dry-run : Esegue il sync in modalità simulazione (nessuna scrittura)}';
 
-    protected $description = 'Sincronizzazione chirurgica dei profili FBref (ID e URL) per una squadra e stagione specifica.';
+    /**
+     * @var string
+     */
+    protected $description = 'Sincronizzazione chirurgica dei profili FBref (ID e URL) per una squadra o l\'intera stagione.';
 
-    protected $scrapingService;
-    protected $proxyManager;
+    /**
+     * @var FbrefScrapingService
+     */
+    protected FbrefScrapingService $scrapingService;
 
-    public function __construct(FbrefScrapingService $scrapingService, ProxyManagerService $proxyManager)
+    /**
+     * @param FbrefScrapingService $scrapingService
+     */
+    public function __construct(FbrefScrapingService $scrapingService)
     {
         parent::__construct();
         $this->scrapingService = $scrapingService;
-        $this->proxyManager = $proxyManager;
     }
 
-    public function handle()
+    /**
+     * Esegue il comando di sincronizzazione.
+     * 
+     * @return int
+     */
+    public function handle(): int
     {
         $teamId = $this->argument('team_id');
-        $seasonYear = $this->option('season') ?: SeasonHelper::getCurrentSeason();
+        $seasonOption = $this->option('season');
+        $seasonYear = (int) ($seasonOption ?: SeasonHelper::getCurrentSeason());
+        $isAll = $this->option('all');
 
-        $team = Team::find($teamId);
-        if (!$team) {
-            $this->error("Squadra con ID {$teamId} non trovata.");
+        // [PROTOCOLLO SICUREZZA] Validazione Bloccante: Target obbligatorio
+        if (!$teamId && !$isAll) {
+            $this->error("ERRORE: Devi fornire un 'team_id' o usare l'opzione '--all' per procedere.");
             return Command::FAILURE;
         }
 
         $season = Season::where('season_year', $seasonYear)->first();
         if (!$season) {
-            $this->error("Stagione {$seasonYear} non trovata a DB.");
+            $this->error("ERRORE: Stagione {$seasonYear} non trovata a DB.");
             return Command::FAILURE;
         }
 
-        // Inizializzazione Log Persistente
-        $importLog = \App\Models\ImportLog::create([
-            'import_type' => 'fbref_surgical_sync',
-            'original_file_name' => "Surgical Sync: {$team->name}", // Salviamo il contesto qui per la tabella
-            'season_id' => $season->id,
-            'status' => 'avviato',
-            'details' => "Sync chirurgico avviato per {$team->name}.",
-            'rows_processed' => 0,
-            'rows_updated' => 0,
-        ]);
+        /** @var \Illuminate\Support\Collection $teams */
+        $teams = collect();
 
-        $this->log("==================================================================", 'info');
-        $this->log("🚀 AVVIO SESSIONE SYNC CHIRURGICO FBREF", 'info');
-        $this->log("SQUADRA: {$team->name} (ID: {$team->id})", 'info');
-        $this->log("STAGIONE: " . SeasonHelper::formatYear($seasonYear), 'info');
-        
-        if (!$team->fbref_url) {
-            $msg = "ERRORE: La squadra '{$team->name}' non ha una URL FBref mappata.";
-            $this->error($msg);
-            $this->log($msg, 'error');
-            $importLog->update(['status' => 'fallito', 'details' => $msg]);
-            return Command::FAILURE;
-        }
-
-        // 1. Costruzione URL Chirurgico
-        $url = $this->buildSurgicalUrl($team, $seasonYear);
-        if (!$url) {
-            $msg = "ERRORE: Impossibile costruire la URL per questa squadra.";
-            $this->error($msg);
-            $this->log($msg, 'error');
-            $importLog->update(['status' => 'fallito', 'details' => $msg]);
-            return Command::FAILURE;
-        }
-
-        $this->info("🌐 Target URL: {$url}");
-        $this->log("Inizio scraping tabella standard... Target URL: {$url}", 'info');
-
-        // 2. Scraping con Failover e Rotazione Proxy
-        $maxRetries = 3;
-        $attempt = 0;
-        $success = false;
-        $playersData = [];
-
-        while ($attempt < $maxRetries && !$success) {
-            $attempt++;
-            
-            $proxy = $this->proxyManager->getBestProxy();
-            if (!$proxy) {
-                $msg = "ERRORE: Nessun proxy disponibile per lo scraping.";
-                $this->error($msg);
-                $importLog->update(['status' => 'fallito', 'details' => $msg]);
+        if ($isAll) {
+            $this->info("🔍 Recupero tutti i team per la stagione " . SeasonHelper::formatYear($seasonYear));
+            // Recupero tutti i team che hanno un roster nella stagione selezionata
+            $teams = Team::whereHas('rosters', function ($q) use ($season) {
+                $q->where('season_id', $season->id);
+            })->get();
+        } else {
+            $team = Team::find($teamId);
+            if (!$team) {
+                $this->error("Squadra con ID {$teamId} non trovata.");
                 return Command::FAILURE;
             }
+            $teams->push($team);
+        }
 
-            try {
-                $this->scrapingService->setTargetUrl($url);
-                $scrapedData = $this->scrapingService->scrapeTeamStats();
-                
-                if (isset($scrapedData['error'])) {
-                    throw new \Exception($scrapedData['error']);
-                }
+        $this->info("🚀 AVVIO SESSIONE SYNC CHIRURGICO FBREF (Rose)");
+        $this->info("Stagione: " . SeasonHelper::formatYear($seasonYear));
+        $this->info("Target: " . ($isAll ? "Intera Stagione (" . $teams->count() . " team)" : "Team: {$teams->first()->name}"));
 
-                $playersData = $scrapedData['stats_standard'] ?? [];
-                if (empty($playersData)) {
-                    throw new \Exception("Tabella stats_standard non trovata.");
-                }
-
-                $success = true;
-
-            } catch (\Exception $e) {
-                $status = $this->extractStatusCode($e->getMessage());
-                
-                if ($status == 403 || $status == 429 || str_contains($e->getMessage(), 'Account out of credits')) {
-                    $this->error("🛑 Proxy '{$proxy->name}' ESAUSTO (Status {$status}). Switch a priority successiva...");
-                    $this->proxyManager->markAsUnreliable($proxy, "Credit Limit Reached ({$status})");
-                    $attempt--; // Non contiamo il tentativo se il proxy è esaurito
-                } else if ($status == 500 || $status == 503) {
-                    $this->error("⚠️ Proxy '{$proxy->name}' Errore Temporaneo 500 (Tentativo {$attempt}/{$maxRetries})...");
-                    if ($attempt >= $maxRetries) {
-                        $this->proxyManager->markAsUnreliable($proxy, "Persistent 500 error after {$maxRetries} tries");
-                    } else {
-                        sleep(2);
-                    }
-                } else {
-                    $msg = "ERRORE INASPETTATO: " . $e->getMessage();
-                    $this->error($msg);
-                    $importLog->update(['status' => 'fallito', 'details' => $msg]);
-                    return Command::FAILURE;
-                }
+        // Preparazione URL e Mappa Context per rintracciare i team post-scraping
+        $urlMap = [];
+        foreach ($teams as $team) {
+            $url = $this->buildSurgicalUrl($team, $seasonYear);
+            if ($url) {
+                $urlMap[$url] = $team;
             }
         }
 
-        if (!$success) {
-            $msg = "ERRORE: Sync fallito per {$team->name} dopo {$maxRetries} tentativi.";
-            $this->error($msg);
-            $importLog->update(['status' => 'fallito', 'details' => $msg]);
+        if (empty($urlMap)) {
+            $this->error("Nessun URL FBref valido rintracciabile per i target selezionati.");
             return Command::FAILURE;
         }
 
-        $this->info("📊 Trovati " . count($playersData) . " calciatori su FBref.");
-        $this->log("Dati estratti con successo. Giocatori su FBref: " . count($playersData), 'info');
-        $importLog->update(['rows_processed' => count($playersData)]);
+        $this->info("🌐 Inizio Scraping via dispatchScrape (" . count($urlMap) . " URL)...");
 
-        // 3. Sync e Matching Rigido (SST)
-        $syncResults = $this->scrapingService->syncPlayersData(
-            $playersData, 
-            $team->id, 
-            $season->id, 
-            $this->option('dry-run'),
-            true // Rigid mapping active
-        );
+        try {
+            // Delega Totale al Service (Gestione Proxy/Pipeline automatica)
+            // Lo Scoping è 'surgical_sync' per ID/URL
+            $response = $this->scrapingService->dispatchScrape(array_keys($urlMap), [
+                'season_id' => $season->id,
+                'season_year' => $seasonYear,
+                'dry_run' => $this->option('dry-run'),
+                'is_surgical' => true // Forza la logica di solo mapping
+            ]);
 
-        foreach ($syncResults['log'] as $logLine) {
-            if (str_contains($logLine, '✅') || str_contains($logLine, '🧪')) {
-                $this->line($logLine);
-            } elseif (str_contains($logLine, '❓')) {
-                $this->warn($logLine);
-            } else {
-                $this->info($logLine);
+            // Se la risposta è un oggetto (ScrapingJob), siamo in modalità Pipeline
+            if ($response instanceof \App\Models\ScrapingJob) {
+                $this->warn("⚙️ Richiesta massiva avviata in modalità PIPELINE (Job ID: {$response->job_id})");
+                $this->info("I dati verranno elaborati in background via Webhook.");
+                return Command::SUCCESS;
             }
-            $this->log($logLine, str_contains($logLine, '❓') ? 'warning' : 'info');
+
+            // Modalità DIRETTA (Sincrona: risposta success/failed per URL)
+            $this->info("✅ Scraping Diretto completato. Elaborazione risultati...");
+
+            foreach ($response as $url => $status) {
+                $team = $urlMap[$url];
+                if ($status === 'success') {
+                    $this->info("✔️ Sync completato con successo per: {$team->name}");
+                } else {
+                    $this->error("❌ Sync fallito per: {$team->name} (URL: {$url})");
+                }
+            }
+
+            $this->info("🏁 Operazione conclusa.");
+
+        } catch (\Exception $e) {
+            $this->error("ERRORE CRITICO: " . $e->getMessage());
+            return Command::FAILURE;
         }
-
-        $this->info("\n📊 RIEPILOGO SINCRONIZZAZIONE");
-        $this->table(
-            ['Categoria', 'Conteggio'],
-            [
-                ['Calciatori Scansionati (FBref)', $syncResults['total']],
-                ['Match Trovati e Aggiornati', $syncResults['updated']],
-                ['Già Mappati Correttamente', $syncResults['matched'] - $syncResults['updated']],
-                ['Ignorati (Noise/Primavera)', $syncResults['noise']],
-            ]
-        );
-
-        $summary = "🏁 FINE. Match: {$syncResults['matched']} | Aggiornati: {$syncResults['updated']} | Noise: {$syncResults['noise']}";
-        $this->log($summary, 'info');
-        $this->log("==================================================================\n", 'info');
-
-        $importLog->update([
-            'status' => $this->option('dry-run') ? 'simulato' : 'successo',
-            'rows_updated' => $syncResults['updated'] ?? 0,
-            'details' => $summary . ($this->option('dry-run') ? ' [MODALITÀ DRY-RUN]' : ''),
-        ]);
 
         return Command::SUCCESS;
     }
 
-    protected function log(string $message, string $level = 'info'): void
-    {
-        Log::channel('fbref_surgical')->$level($message);
-    }
-
+    /**
+     * Ricostruisce l'URL FBref preservando la logica stabile del commit 012071b.
+     * 
+     * @param Team $team
+     * @param int $year
+     * @return string|null
+     */
     protected function buildSurgicalUrl(Team $team, int $year): ?string
     {
         $baseUrl = $team->fbref_url;
         
-        if (!preg_match('/squads\/([a-f0-9]+)\//', $baseUrl, $matches)) {
+        if (!$baseUrl || !preg_match('/squads\/([a-f0-9]+)\//', $baseUrl, $matches)) {
             return null;
         }
         $fbrefId = $matches[1];
@@ -213,29 +163,16 @@ class FbrefSurgicalTeamSync extends Command
         $parts = explode('/', rtrim($baseUrl, '/'));
         $teamSlug = end($parts);
         if (!str_contains($teamSlug, '-Stats')) {
-             $teamSlug = Str::slug($team->name) . "-Stats";
+             $teamSlug = \Illuminate\Support\Str::slug($team->name) . "-Stats";
         }
 
         // Se è la stagione in corso (2025), usiamo l'URL principale senza l'anno nel path
-        if ($year === SeasonHelper::getCurrentSeason()) {
+        if ($year === (int) SeasonHelper::getCurrentSeason()) {
             return "https://fbref.com/en/squads/{$fbrefId}/{$teamSlug}";
         }
 
         $seasonPart = "{$year}-" . ($year + 1);
         return "https://fbref.com/en/squads/{$fbrefId}/{$seasonPart}/{$teamSlug}";
     }
-
-    protected function normalize(string $name): string
-    {
-        $name = strtolower(Str::ascii($name));
-        return preg_replace('/[^a-z]/', '', $name);
-    }
-
-    protected function extractStatusCode(string $message): int
-    {
-        if (preg_match('/Status: (\d+)/', $message, $m)) {
-            return (int) $m[1];
-        }
-        return 0;
-    }
 }
+
