@@ -12,11 +12,11 @@ class ProxyServiceSeeder extends Seeder
      */
     public function run(): void
     {
-        // Pulizia totale per marcatura a fuoco
-        \Illuminate\Support\Facades\DB::table('proxy_services')->truncate();
-
-        // Parametri puliti (Senza forzature premium/render che bloccano i piani base)
-        $params = [];
+        // Definiamo i parametri in un array PHP
+        $params = [
+            'render'  => true, 
+            'premium' => true
+        ];
 
         $triade = [
             [
@@ -25,12 +25,11 @@ class ProxyServiceSeeder extends Seeder
                 'slug' => 'scraperapi-metmi',
                 'base_url' => 'http://proxy-server.scraperapi.com:8001',
                 'api_key' => 'bbcaefcbfd3ce3a1c9c2c2e5d7b46a9d',
-                'default_params' => $params,
+                'default_params' => json_encode($params),
                 'limit_monthly' => 5000,
-                'current_usage' => 2800,
+                'js_cost' => 10,
                 'is_active' => true,
                 'priority' => 1,
-                'js_cost' => 10,
             ],
             [
                 'id' => 2,
@@ -38,12 +37,11 @@ class ProxyServiceSeeder extends Seeder
                 'slug' => 'scraperapi-inwind',
                 'base_url' => 'http://proxy-server.scraperapi.com:8001',
                 'api_key' => 'bb9c2be5115269c16b31266c45a56404',
-                'default_params' => $params,
-                'limit_monthly' => 5000,
-                'current_usage' => 0,
+                'default_params' => json_encode($params),
+                'limit_monthly' => 1000,
+                'js_cost' => 10,
                 'is_active' => true,
                 'priority' => 2,
-                'js_cost' => 10,
             ],
             [
                 'id' => 3,
@@ -51,12 +49,11 @@ class ProxyServiceSeeder extends Seeder
                 'slug' => 'scraperapi-gmail',
                 'base_url' => 'http://proxy-server.scraperapi.com:8001',
                 'api_key' => '4a400f9d25a28f5c804a453ac51d152a',
-                'default_params' => $params,
-                'limit_monthly' => 5000,
-                'current_usage' => 0,
+                'default_params' => json_encode($params),
+                'limit_monthly' => 1000,
+                'js_cost' => 10,
                 'is_active' => true,
                 'priority' => 3,
-                'js_cost' => 10,
             ],
         ];
 
