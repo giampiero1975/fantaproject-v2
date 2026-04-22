@@ -41,81 +41,28 @@ class ManageSeason extends Page implements HasTable
     protected function getHeaderActions(): array
     {
         return [
-            Action::make('syncSeasons')
-                ->label('Sincronizza Stagioni da Api')
-                ->icon('heroicon-o-magnifying-glass')
-                ->color('info')
+            Action::make('setupTimeline')
+                ->label('Inizializza Timeline Completa')
+                ->icon('heroicon-o-sparkles')
+                ->color('success')
                 ->action(function () {
-                    $this->forceCheck();
-                    
-                    // Se rilevata nuova stagione come UPDATE dal monitor, inizializzala
-                    if (!$this->localSeasonState && $this->apiSeasonState['status'] === SeasonMonitorService::STATUS_UPDATE) {
-                        $apiData = $this->apiSeasonState['api_data'];
-                        $year = (int) substr($apiData['startDate'], 0, 4);
-                        
-                        Season::updateOrCreate(
-                            ['api_id' => $this->apiSeasonState['api_id']],
-                            [
-                                'season_year' => $year,
-                                'start_date' => $apiData['startDate'],
-                                'end_date' => $apiData['endDate'] ?? null,
-                                'is_current' => true,
-                            ]
-                        );
-
-                        \App\Models\ImportLog::create([
-                            'import_type' => 'SEASON_INIT',
-                            'original_file_name' => 'ManageSeason Page',
-                            'status' => 'successo',
-                            'details' => "Inizializzata stagione {$year} (API ID: {$this->apiSeasonState['api_id']})",
-                            'rows_created' => 1,
-                            'rows_processed' => 1,
-                        ]);
-                        
-                        $this->localSeasonState = Season::where('is_current', true)->first();
-                        $this->computeLookback();
-                        
-                        \Filament\Notifications\Notification::make()
-                            ->title('Stagione Inizializzata')
-                            ->body("Rilevata e configurata la stagione {$year} come attuale.")
-                            ->success()
-                            ->send();
-                    }
-                }),
-            Action::make('bootstrapHistory')
-                ->label('Inizializza Lookback 4 Anni')
-                ->color('warning')
-                ->icon('heroicon-o-arrow-path-rounded-square')
-                ->requiresConfirmation()
-                ->modalHeading('Generazione Automatica Storico')
-                ->modalDescription('Verranno creati i 4 contenitori stagionali precedenti a quella in corso (es. 2021-2024). Questa operazione NON scarica squadre.')
-                ->visible(fn () => ($this->lookbackStatus['exists_count'] ?? 0) < ($this->lookbackStatus['target_count'] ?? 4))
-                ->action(function () {
-                    if (!$this->localSeasonState) {
-                        \Filament\Notifications\Notification::make()
-                            ->title('Stagione Corrente Mancante')
-                            ->body('Devi prima sincronizzare la stagione attuale per definire l\'anno di riferimento.')
-                            ->warning()
-                            ->send();
-                        return;
-                    }
-
-                    $results = app(\App\Services\SeasonMonitorService::class)->bootstrapHistory();
+                    $results = app(SeasonMonitorService::class)->initializeFullTimeline();
                     
                     if ($results['status'] === 'success') {
                         \Filament\Notifications\Notification::make()
-                            ->title('Lookback Inizializzato')
-                            ->body('Creati i contenitori stagionali per il monitoraggio storico.')
+                            ->title('Timeline Inizializzata')
+                            ->body('La timeline delle stagioni è stata configurata cronologicamente.')
                             ->success()
                             ->send();
                     } else {
                         \Filament\Notifications\Notification::make()
-                            ->title('Errore Bootstrap')
+                            ->title('Errore Inizializzazione')
                             ->body($results['message'])
                             ->danger()
                             ->send();
                     }
 
+                    $this->localSeasonState = Season::where('is_current', true)->first();
                     $this->computeLookback();
                 }),
         ];

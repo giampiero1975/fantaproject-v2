@@ -34,7 +34,8 @@ class PlayersHistoricalSync extends Command
     protected \Psr\Log\LoggerInterface $syncLogger;
     protected array                    $registryMap = [];
     protected array                    $slugMap     = [];
-    protected array                    $currentSeasonRosterMap = [];
+    /** @var \Illuminate\Support\Collection|array */
+    protected                          $currentSeasonRosterMap = [];
     
     use FindsPlayerByName;
 
@@ -188,11 +189,12 @@ class PlayersHistoricalSync extends Command
                 }
 
                 // 2. [ERP-FAST] RECUPERO ROSTER LOCALE IN-MEMORY
+                // NOTA: Non usare .toArray() — i record devono restare oggetti Eloquent
+                // per permettere save() nella logica cross-team ownership (parent_team_id).
                 $this->currentSeasonRosterMap = PlayerSeasonRoster::where('season_id', $seasonModel->id)
                     ->get()
                     ->groupBy('team_id')
-                    ->map(fn($group) => $group->keyBy('player_id'))
-                    ->toArray();
+                    ->map(fn($group) => $group->keyBy('player_id'));
 
                 foreach ($squadFromApi as $playerData) {
                     $res = $this->matchAndSync($playerData, $seasonModel, $team, $threshold, $forceMode);

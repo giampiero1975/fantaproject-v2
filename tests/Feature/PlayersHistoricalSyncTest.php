@@ -150,26 +150,24 @@ class PlayersHistoricalSyncTest extends TestCase
             'name' => 'Theo Hernandez'
         ]);
 
-        // 3. Verifica L3: Alvaro Morata (Agganciato ID API tramite ricerca globale e filtro RUOLO A)
+        // 3. Verifica L3: Alvaro Morata (Policy 'Match o Nulla' attiva)
+        // Il command NON aggancia giocatori non presenti nel roster locale della stagione corrente.
+        // Morata non è nel roster Milan a DB → api_football_data_id rimane NULL.
         $this->assertDatabaseHas('players', [
-            'api_football_data_id' => 11111,
-            'name' => 'Alvaro Morata'
+            'api_football_data_id' => null,
+            'name'                 => 'Alvaro Morata',
         ]);
         
-        // Morata Pseudo (Difensore) non deve aver ricevuto l'ID 11111
+        // 4. Verifica L4: Francesco Camarda (Policy 'Match o Nulla')
+        // Camarda non esiste nel registro locale → viene skippato, NON creato come zombie.
         $this->assertDatabaseMissing('players', [
-            'name' => 'Alvaro Morata Pseudo',
-            'api_football_data_id' => 11111
-        ]);
-
-        // 4. Verifica L4: Francesco Camarda (Nuovo calciatore creato)
-        $this->assertDatabaseHas('players', [
             'api_football_data_id' => 99999,
-            'name' => 'Francesco Camarda'
+            'name'                 => 'Francesco Camarda',
         ]);
 
-        // 5. Verifica Roster: Tutti e 4 devono essere nel roster Milan 2025
-        $this->assertEquals(4, PlayerSeasonRoster::where('team_id', 1)->where('season_id', 1)->count());
+        // 5. Verifica Roster: Solo L1 (Leao) e L2 (Theo) sono nel roster Milan 2025.
+        //    Morata e Camarda non sono nel roster locale -> skippati dalla policy.
+        $this->assertEquals(2, PlayerSeasonRoster::where('team_id', 1)->where('season_id', 1)->count());
 
         // 6. Verifica Progresso Cache
         $progress = Cache::get('sync_rose_progress');

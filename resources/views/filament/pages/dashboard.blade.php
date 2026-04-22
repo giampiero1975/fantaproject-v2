@@ -148,13 +148,13 @@
                     </span>
                     @if($s2_status !== 'blocked')
                     <div style="display:flex; gap:8px; align-items:center;">
-                        @php $squadColor = ($teamsActiveCount >= 20) ? '#10b981' : '#f59e0b'; @endphp
+                        @php $squadColor = ($teamTotal >= 20) ? '#10b981' : '#f59e0b'; @endphp
                         <span title="Squadre attive" style="font-size:0.75rem; font-weight:600; color:#475569; background:#fff; border:1px solid #e2e8f0; padding:2px 10px; border-radius:12px;">
-                            Active: <span style="color:{{ $squadColor }}; font-weight:700;">{{ $teamsActiveCount }} / 20</span>
+                            Active: <span style="color:{{ $squadColor }}; font-weight:700;">{{ $teamTotal }} / 20</span>
                         </span>
                         @php $apiColor = ($apiMissingCount === 0) ? '#10b981' : '#f59e0b'; @endphp
                         <span title="Mappatura API" style="font-size:0.75rem; font-weight:600; color:#475569; background:#fff; border:1px solid #e2e8f0; padding:2px 10px; border-radius:12px;">
-                            API: <span style="color:{{ $apiColor }}; font-weight:700;">{{ $apiMappedCount }}</span>
+                            API: <span style="color:{{ $apiColor }}; font-weight:700;">{{ $teamWithApi }}</span>
                         </span>
                     </div>
                     @endif

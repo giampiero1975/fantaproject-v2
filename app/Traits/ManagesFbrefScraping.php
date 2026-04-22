@@ -48,6 +48,40 @@ trait ManagesFbrefScraping
             throw new \Exception("Proxy '{$proxy->name}': Richiesta fallita (Status: {$response->status()})");
         }
     }
+
+    /**
+     * Recupera l'HTML grezzo (stringa) tramite proxy.
+     * Identico a fetchPageWithProxy ma ritorna il body come stringa invece del Crawler.
+     * Utilizzato da FbrefScrapingService::scrapeTeamStats() per lo svelamento degli HTML commentati.
+     */
+    protected function fetchRawHtmlWithProxy(string $url, bool $render = false): string
+    {
+        $this->performSleep();
+
+        $proxyManager = app(ProxyManagerService::class);
+        $proxy = $proxyManager->getActiveProxy();
+
+        if (!$proxy) {
+            Log::error("[Trait ManagesFbrefScraping] Nessun proxy attivo disponibile.");
+            throw new \Exception("Nessun proxy attivo disponibile.");
+        }
+
+        $proxyUrl = $proxyManager->getProxyUrl($proxy, $url, ['render' => $render]);
+
+        Log::debug("[Trait ManagesFbrefScraping::fetchRawHtmlWithProxy] GET {$proxyUrl}");
+
+        $response = Http::timeout(120)->withoutVerifying()->get($proxyUrl);
+        $body     = $response->body();
+
+        if ($response->successful()) {
+            Log::debug("[Trait ManagesFbrefScraping::fetchRawHtmlWithProxy] OK " . strlen($body) . " bytes");
+            return $body;
+        }
+
+        Log::error("[Trait ManagesFbrefScraping::fetchRawHtmlWithProxy] Fallita (Status: {$response->status()})");
+        throw new \Exception("Proxy '{$proxy->name}': Richiesta fallita (Status: {$response->status()})");
+    }
+
     
     protected function parseTableWithInvertedMap(Crawler $table, array $columnMap): array
     {

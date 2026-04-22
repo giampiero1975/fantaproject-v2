@@ -317,85 +317,83 @@ class SeasonMonitorService
     }
 
     /**
-     * Inizializzazione automatica dello storico (4 anni).
-     * < 2023: ID convenzionale year*100.
-     * >= 2023: Trigger del comando sync per far valorizzare l'ID dall'API.
+     * Inizializzazione completa della timeline delle stagioni.
+     * Chiamata API unificata, ciclo cronologico e gestione is_current.
      */
-    public function bootstrapHistory(): array
+    public function initializeFullTimeline(): array
     {
-        $currentSeason = Season::where('is_current', true)->first();
-        if (!$currentSeason) {
-            return ['status' => 'error', 'message' => 'Nessuna stagione corrente attiva.'];
-        }
-
-        $currentYear = $currentSeason->season_year;
-        $lookbackYears = config('football.lookback_years', 4);
-        $results = [];
+        $this->logEvent("[TIMELINE] Avvio inizializzazione timeline completa...");
+        
+        $currentYear = \App\Helpers\SeasonHelper::getCurrentSeason();
+        $lookbackYears = \App\Helpers\SeasonHelper::getLookbackYears();
+        $startYear = $currentYear - $lookbackYears;
+        
         $apiKey = env('FOOTBALL_DATA_API_KEY');
+        $results = [];
+        
+        try {
+            // 1. Singola chiamata API per recuperare tutte le stagioni della Serie A
+            $response = Http::withHeaders(['X-Auth-Token' => $apiKey])
+                ->get('https://api.football-data.org/v4/competitions/SA');
 
-        $rowsProcessed = 0;
-        $rowsCreated = 0;
-        $rowsUpdated = 0;
-
-        for ($i = 1; $i <= $lookbackYears; $i++) {
-            $rowsProcessed++;
-            $year = $currentYear - $i;
-            $season = Season::where('season_year', $year)->first();
-
-            if ($season) {
-                $results[$year] = 'EXISTS';
-                $rowsUpdated++;
-                continue;
+            if ($response->failed()) {
+                throw new \Exception("Chiamata API fallita: " . $response->status());
             }
 
-            if ($year < 2023) {
-                // Anni Legacy: API_ID convenzionale
-                Season::create([
-                    'api_id' => $year * 100,
-                    'season_year' => $year,
-                    'start_date' => "{$year}-08-20",
-                    'end_date' => ($year + 1) . "-05-25",
-                    'is_current' => false,
-                ]);
-                $results[$year] = 'CREATED (LEGACY)';
-                $rowsCreated++;
-            } else {
-                // Anni API: Recupero solo date (Scatola Stagione) senza teams
-                $response = Http::withHeaders(['X-Auth-Token' => $apiKey])
-                    ->get("https://api.football-data.org/v4/competitions/SA/teams", ['season' => $year]);
+            $apiData = $response->json();
+            $apiSeasons = collect($apiData['seasons'] ?? []);
+            
+            // 2. Ciclo cronologico dal più vecchio al più recente
+            for ($year = $startYear; $year <= $currentYear; $year++) {
+                // Cerchiamo i dati nell'API per questo anno
+                $apiSeason = $apiSeasons->first(fn($s) => substr($s['startDate'], 0, 4) == $year);
+                
+                $apiId = null;
+                $startDate = "{$year}-08-20"; // Default legacy
+                $endDate = ($year + 1) . "-05-25"; // Default legacy
 
-                if ($response->successful()) {
-                    $apiData = $response->json();
-                    $apiSeason = $apiData['season'] ?? null;
-                    if ($apiSeason && isset($apiSeason['id'])) {
-                        Season::create([
-                            'api_id' => (int) $apiSeason['id'],
-                            'season_year' => $year,
-                            'start_date' => $apiSeason['startDate'],
-                            'end_date' => $apiSeason['endDate'] ?? null,
-                            'is_current' => false,
-                        ]);
-                        $results[$year] = 'CREATED (BOX ONLY)';
-                        $rowsCreated++;
-                    } else {
-                        $results[$year] = 'ERROR (MALFORMED API)';
-                    }
-                } else {
-                    $results[$year] = 'ERROR (API FAIL)';
+                if ($apiSeason) {
+                    $apiId = (int) $apiSeason['id'];
+                    $startDate = $apiSeason['startDate'];
+                    $endDate = $apiSeason['endDate'] ?? null;
+                } elseif ($year < 2023) {
+                    // ID convenzionale per anni legacy non presenti in API
+                    $apiId = $year * 100;
                 }
+
+                if (!$apiId) {
+                    $results[$year] = 'SKIPPED (NO API ID)';
+                    continue;
+                }
+
+                $season = Season::updateOrCreate(
+                    ['season_year' => $year],
+                    [
+                        'api_id' => $apiId,
+                        'start_date' => $startDate,
+                        'end_date' => $endDate,
+                        'is_current' => ($year === $currentYear),
+                    ]
+                );
+
+                $results[$year] = $season->wasRecentlyCreated ? 'CREATED' : 'UPDATED';
             }
+
+            $this->logEvent("[TIMELINE] Completata: " . json_encode($results));
+
+            \App\Models\ImportLog::create([
+                'import_type' => 'TIMELINE_INIT',
+                'original_file_name' => 'SeasonMonitorService',
+                'status' => 'successo',
+                'details' => "Timeline inizializzata: " . json_encode($results),
+                'rows_processed' => count($results),
+            ]);
+
+            return ['status' => 'success', 'results' => $results];
+
+        } catch (\Exception $e) {
+            $this->logEvent("[TIMELINE] Errore: " . $e->getMessage(), 'error');
+            return ['status' => 'error', 'message' => $e->getMessage()];
         }
-
-        \App\Models\ImportLog::create([
-            'import_type' => 'LOOKBACK_BOOTSTRAP',
-            'original_file_name' => 'SeasonMonitorService',
-            'status' => 'successo',
-            'details' => "Inizializzazione storico completata: " . json_encode($results),
-            'rows_processed' => $rowsProcessed,
-            'rows_created' => $rowsCreated,
-            'rows_updated' => $rowsUpdated,
-        ]);
-
-        return ['status' => 'success', 'results' => $results];
     }
 }

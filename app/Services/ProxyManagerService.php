@@ -204,4 +204,32 @@ class ProxyManagerService
             Log::error("[ProxyManager DB LOG FAIL] " . $e->getMessage());
         }
     }
+
+    /**
+     * Ritorna lo stato aggregato dei proxy per la Dashboard.
+     */
+    public function getProxyStatus(): array
+    {
+        $proxy = ProxyService::where('is_active', true)->first();
+        
+        if (!$proxy) {
+            return [
+                'percentage_used' => 100,
+                'used' => 0,
+                'limit' => 0,
+                'label' => 'NESSUN PROXY',
+            ];
+        }
+
+        $percentageUsed = ($proxy->limit_monthly > 0)
+            ? round(($proxy->current_usage / $proxy->limit_monthly) * 100, 1)
+            : 100;
+
+        return [
+            'percentage_used' => $percentageUsed,
+            'used'            => $proxy->current_usage,
+            'limit'           => $proxy->limit_monthly,
+            'name'            => $proxy->name,
+        ];
+    }
 }

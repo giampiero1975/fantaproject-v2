@@ -6,11 +6,14 @@ use App\Models\Player;
 use App\Models\PlayerSeasonRoster;
 use App\Models\Team;
 use App\Models\Season;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
 use Tests\TestCase;
 
 class MatchingAuditRealDataTest extends TestCase
 {
+    use RefreshDatabase;
+
     /**
      * Esegue l'audit sui calciatori creati come L4 (Nuovi) per verificare
      * se potevano essere matchati come L3 (Trasferimenti).
