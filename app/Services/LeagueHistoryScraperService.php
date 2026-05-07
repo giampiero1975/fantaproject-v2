@@ -250,6 +250,13 @@ class LeagueHistoryScraperService
             $response = Http::timeout(40)->withoutVerifying()->get($proxyUrl);
             $duration = round(microtime(true) - $startTime, 2);
 
+            // Intercettazione Header per logica di reset silenzioso
+            try {
+                $proxyManager->updateProxyUsageFromHeaders($proxy, $response->headers());
+            } catch (\Exception $e) {
+                $this->log("⚠️ [HEADER PARSE ERROR] Impossibile analizzare gli header: " . $e->getMessage());
+            }
+
             // Sincronizzazione automatica del saldo dopo ogni chiamata per tracciabilità crediti
             try {
                 $proxyManager->syncBalance($proxy);

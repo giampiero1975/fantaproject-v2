@@ -131,6 +131,7 @@ class ProxyManagerService
             $proxy->update([
                 'current_usage' => $balance['used'],
                 'limit_monthly' => $balance['limit'],
+                'last_available_requests' => $balance['remaining'] ?? ($balance['limit'] - $balance['used']),
             ]);
             $proxy->touch(); // Forza updated_at anche se i valori sono identici
 
@@ -202,6 +203,46 @@ class ProxyManagerService
         } catch (\Exception $e) {
             // Ignoriamo silenziose se stiamo loggando e il DB ha problemi (evitiamo loop infiniti)
             Log::error("[ProxyManager DB LOG FAIL] " . $e->getMessage());
+        }
+    }
+
+    /**
+     * Intercetta gli header di risposta per la logica di reset automatico dei crediti (Silent Sync).
+     */
+    public function updateProxyUsageFromHeaders(ProxyService $proxy, array $headers): void
+    {
+        // 1. Intercettazione Header: Recupera il valore di X-Requests-Available-Month
+        $headerValue = null;
+        foreach ($headers as $key => $value) {
+            if (strtolower($key) === 'x-requests-available-month') {
+                $headerValue = is_array($value) ? ($value[0] ?? null) : $value;
+                break;
+            }
+        }
+
+        // Idempotenza: La logica deve attivarsi solo se l'header è presente e valido.
+        if (is_null($headerValue) || !is_numeric($headerValue)) {
+            return;
+        }
+
+        $headerValue = (int) $headerValue;
+        $lastAvailable = (int) $proxy->last_available_requests;
+
+        // 2. Logica di Reset Dinamico:
+        if ($headerValue > $lastAvailable) {
+            // TRIGGER: Se valore_header > last_available_requests, significa che il provider ha resettato il credito mensile.
+            $proxy->update([
+                'current_usage' => 0, // Reset locale
+                'last_available_requests' => $headerValue,
+            ]);
+            $this->audit("Reset Automatico Credito: Rilevato reset mensile per '{$proxy->name}' (Header: {$headerValue} > Last: {$lastAvailable})", 'info', $proxy->slug);
+        } else {
+            // INCREMENTO: Se non c'è reset, procedi normalmente incrementando current_usage con il costo specifico del proxy (js_cost) e aggiornando last_available_requests.
+            $cost = (int) ($proxy->js_cost ?: 10);
+            $proxy->update([
+                'current_usage' => $proxy->current_usage + $cost,
+                'last_available_requests' => $headerValue,
+            ]);
         }
     }
 

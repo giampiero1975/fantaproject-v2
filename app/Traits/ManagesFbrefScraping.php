@@ -34,10 +34,14 @@ trait ManagesFbrefScraping
         
         Log::debug("[Trait ManagesFbrefScraping] ZenRows API URL: {$proxyUrl}");
 
-        // Timeout alzato a 120s per supportare JS rendering (premium=true + render=true)
-        // su pagine FBref pesanti con ScraperAPI e ZenRows
         $response = Http::timeout(120)->withoutVerifying()->get($proxyUrl);
         $body = $response->body();
+        
+        try {
+            $proxyManager->updateProxyUsageFromHeaders($proxy, $response->headers());
+        } catch (\Exception $e) {
+            Log::warning("[ManagesFbrefScraping] Impossibile analizzare gli header di risposta: " . $e->getMessage());
+        }
         
         Log::debug("[Trait ManagesFbrefScraping] Response Snippet: " . substr($body, 0, 500));
 
@@ -72,6 +76,12 @@ trait ManagesFbrefScraping
 
         $response = Http::timeout(120)->withoutVerifying()->get($proxyUrl);
         $body     = $response->body();
+
+        try {
+            $proxyManager->updateProxyUsageFromHeaders($proxy, $response->headers());
+        } catch (\Exception $e) {
+            Log::warning("[ManagesFbrefScraping::fetchRawHtmlWithProxy] Impossibile analizzare gli header di risposta: " . $e->getMessage());
+        }
 
         if ($response->successful()) {
             Log::debug("[Trait ManagesFbrefScraping::fetchRawHtmlWithProxy] OK " . strlen($body) . " bytes");

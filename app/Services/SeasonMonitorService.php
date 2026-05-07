@@ -167,14 +167,15 @@ class SeasonMonitorService
         }
     }
 
-    /**
-     * Sincronizza i metadati della Lega (Serie A) mappando correttamente i codici nazione.
-     */
     protected function syncLeagueMetadata(array $apiData): void
     {
         $leagueId = (int) ($apiData['id'] ?? 2019);
         $areaCode = $apiData['area']['code'] ?? 'ITA';
         
+        // Sincronizziamo il fbref_id dinamicamente usando la configurazione config/leagues_mapping.php
+        $mapping = config('leagues_mapping', []);
+        $fbrefId = $mapping[$leagueId] ?? null;
+
         // Nessun mapping: usiamo il valore puro dall'API (es. ITA)
         $countryCode = $areaCode;
 
@@ -183,10 +184,11 @@ class SeasonMonitorService
             [
                 'name' => $apiData['name'] ?? 'Serie A',
                 'country_code' => $countryCode,
+                'fbref_id' => $fbrefId
             ]
         );
 
-        $this->logEvent("[LEAGUE SYNC] Lega {$leagueId} aggiornata: code {$countryCode}");
+        $this->logEvent("[LEAGUE SYNC] Lega {$leagueId} aggiornata: code {$countryCode}, fbref_id {$fbrefId}");
     }
 
     /**
@@ -341,6 +343,10 @@ class SeasonMonitorService
             }
 
             $apiData = $response->json();
+            
+            // Sincronizziamo preventivamente i metadati della Lega prima di popolare la timeline delle stagioni (Ex Step 0)
+            $this->syncLeagueMetadata($apiData);
+            
             $apiSeasons = collect($apiData['seasons'] ?? []);
             
             // 2. Ciclo cronologico dal più vecchio al più recente

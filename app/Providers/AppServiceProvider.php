@@ -22,5 +22,7 @@ class AppServiceProvider extends ServiceProvider
         \Illuminate\Support\Facades\DB::listen(function ($query) {
             \Illuminate\Support\Facades\Log::debug($query->sql, $query->bindings);
         });
+
+        \Livewire\Livewire::component('season-alert-widget', \App\Filament\Widgets\SeasonAlertWidget::class);
     }
 }

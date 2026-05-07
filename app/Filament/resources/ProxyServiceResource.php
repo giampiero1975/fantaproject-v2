@@ -144,6 +144,9 @@ class ProxyServiceResource extends Resource
                                 ->title('Sincronizzazione completata')
                                 ->success()
                                 ->send();
+                            
+                            // Forza il caricamento istantaneo della pagina aggiornata
+                            return redirect()->to(static::getUrl('index'));
                         } catch (\Exception $e) {
                             Notification::make()
                                 ->title('Errore sincronizzazione')

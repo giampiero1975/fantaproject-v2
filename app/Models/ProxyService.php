@@ -13,6 +13,7 @@ class ProxyService extends Model
         'api_key',
         'limit_monthly',
         'current_usage',
+        'last_available_requests',
         'is_active',
         'priority',
         'js_cost',

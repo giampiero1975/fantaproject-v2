@@ -72,69 +72,11 @@
             }
         @endphp
 
-        {{-- ══════════════════════════════════════════════════════════════════ --}}
-        {{-- STEP 0 — MONITOR REGIONALE                                       --}}
-        {{-- ══════════════════════════════════════════════════════════════════ --}}
-        <div style="width:100%; border-radius:8px; border:1px solid #e5e7eb; overflow:hidden; box-shadow:0 1px 3px rgba(0,0,0,.07); border-left: 4px solid #3b82f6; margin-bottom: 8px;">
-            <div style="display:flex; align-items:center; justify-content:space-between; padding:10px 16px; background-color: #f8fafc; border-bottom: 1px solid #e2e8f0;">
-                <div style="display:flex; align-items:center; gap:16px;">
-                    <span style="font-weight:700; color:#1e293b; font-size:0.875rem;">
-                        📡 0. Monitor Regionale (Hub Football-Data)
-                    </span>
-                    <div style="display:flex; gap:8px;">
-                        @php 
-                            $sColor = match($seasonStatus['color'] ?? 'warning') {
-                                'success' => '#10b981',
-                                'gray' => '#6b7280',
-                                default => '#f59e0b',
-                            };
-                        @endphp
-                        <span style="font-size:0.75rem; font-weight:600; color:#475569; background:#fff; border:1px solid #e2e8f0; padding:2px 10px; border-radius:12px;">
-                            API: <span style="color:{{ $sColor }}; font-weight:700;">{{ $seasonStatusLabel }}</span>
-                        </span>
-                        <span style="font-size:0.75rem; font-weight:600; color:#475569; background:#fff; border:1px solid #e2e8f0; padding:2px 10px; border-radius:12px;">
-                            Proxy: <span style="color:{{ $proxyStatus['percentage_used'] > 90 ? '#dc2626' : '#10b981' }}; font-weight:700;">{{ 100 - $proxyStatus['percentage_used'] }}% Disponibile</span>
-                        </span>
-                    </div>
-                </div>
-                <button wire:click="triggerSeasonSync" wire:loading.attr="disabled" class="text-xs font-bold text-blue-600 hover:underline flex items-center gap-1">
-                    <x-heroicon-o-arrow-path wire:loading.class="animate-spin" class="w-3 h-3" />
-                    Sincronizza Struttura
-                </button>
-            </div>
-        </div>
 
         {{-- ══════════════════════════════════════════════════════════════════ --}}
         {{-- STEP 1 — GESTIONE STAGIONI                                       --}}
         {{-- ══════════════════════════════════════════════════════════════════ --}}
-        @php $th = stepTheme($s1_status) @endphp
-        <div style="width:100%; border-radius:8px; border:1px solid #e5e7eb; overflow:hidden; box-shadow:0 1px 3px rgba(0,0,0,.07); {{ $th['border_style'] }}">
-            <div style="display:flex; align-items:center; justify-content:space-between; padding:10px 16px; {{ $th['header_style'] }}">
-                <span style="font-weight:700; color:#1f2937; font-size:0.875rem;">
-                    {{ $th['icon'] }} 1. Gestione Stagioni
-                </span>
-                <div style="display:flex; align-items:center; gap:8px;">
-                    <a href="{{ route('filament.admin.pages.manage-season') }}" class="text-xs font-bold text-blue-600 hover:underline">Vedi Storico</a>
-                    <span style="{{ $th['badge_style'] }}">{{ $th['badge_label'] }}</span>
-                </div>
-            </div>
-            @if($s1_status !== 'blocked')
-                <div class="px-4 py-3 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm bg-white dark:bg-gray-900">
-                    <div>
-                        <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">Stagione Attiva</p>
-                        <p class="text-gray-700 dark:text-gray-200">
-                            Anno: <strong>{{ $currentSeasonModel ? $currentSeasonModel->season_year : 'Mancante' }}</strong>
-                        </p>
-                    </div>
-                    <div>
-                        <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">Storico (Lookback)</p>
-                        <p style="{{ $lookbackStatus['is_ready'] ? 'color:#198754' : 'color:#d97706' }}">
-                            {{ $lookbackStatus['ready_count'] }} / {{ $lookbackStatus['target_count'] }} anni completi
-                        </p>
-                    </div>
-                </div>
-            @endif
-        </div>
+        @livewire('season-alert-widget')
 
         {{-- ══════════════════════════════════════════════════════════════════ --}}
         {{-- STEP 2 — Squadre (Anagrafica & API)                               --}}

@@ -3,6 +3,9 @@
 namespace App\Services;
 
 use App\Models\Team;
+use App\Models\League;
+use App\Models\Season;
+use App\Models\TeamSeason;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -21,6 +24,18 @@ class FootballDataApiService
      */
     public function syncTeams(string $leagueCode = 'SA', array $seasons = [2023, 2024, 2025]): void
     {
+        // Fallback provvisorio per l'allineamento iniziale (verrà corretto dinamicamente dall'ID fornito dall'API)
+        $mapping = config('leagues_mapping', []);
+        $fbrefId = ($leagueCode === 'SA') ? ($mapping[2019] ?? null) : null;
+
+        $leagueModel = League::updateOrCreate(
+            ['name' => ($leagueCode === 'SA') ? 'Serie A' : $leagueCode],
+            [
+                'country_code' => ($leagueCode === 'SA') ? 'ITA' : $leagueCode,
+                'fbref_id' => $fbrefId
+            ]
+        );
+
         foreach ($seasons as $season) {
             Log::info("FootballDataAPI: Recupero squadre per {$leagueCode} stagione {$season}");
             
@@ -35,7 +50,30 @@ class FootballDataApiService
                 continue;
             }
 
-            $teams = $response->json()['teams'] ?? [];
+            $apiData = $response->json();
+            
+            // 1. IDEMPOTENZA DINAMICA (Leagues): Leggiamo l'id fornito direttamente dall'API per evitare hardcoding
+            $competitionData = $apiData['competition'] ?? null;
+            if ($competitionData && isset($competitionData['id'])) {
+                $leagueId = (int) $competitionData['id'];
+                $leagueName = $competitionData['name'] ?? 'Serie A';
+                $dynamicFbrefId = $mapping[$leagueId] ?? null;
+
+                // Allineiamo il modello League usando l'api_id ritornato dal provider ufficiale
+                $leagueModel = League::updateOrCreate(
+                    ['api_id' => $leagueId],
+                    [
+                        'name' => $leagueName,
+                        'country_code' => $competitionData['code'] ?? 'SA',
+                        'fbref_id' => $dynamicFbrefId
+                    ]
+                );
+
+                // Eliminiamo eventuali record orfani duplicati senza api_id creati precedentemente con lo stesso nome
+                League::where('name', $leagueName)->whereNull('api_id')->delete();
+            }
+
+            $teams = $apiData['teams'] ?? [];
 
             foreach ($teams as $teamData) {
                 // is_active = true solo per la stagione corrente (es. 2025)
@@ -52,10 +90,9 @@ class FootballDataApiService
                 );
 
                 // Setup the season & league relations
-                $seasonModel = \App\Models\Season::firstOrCreate(['season_year' => $season]);
-                $leagueModel = \App\Models\League::firstOrCreate(['country_code' => 'ITA'], ['name' => 'Serie A']);
+                $seasonModel = Season::firstOrCreate(['season_year' => $season]);
 
-                \App\Models\TeamSeason::updateOrCreate(
+                TeamSeason::updateOrCreate(
                     [
                         'team_id' => $team->id,
                         'season_id' => $seasonModel->id,
