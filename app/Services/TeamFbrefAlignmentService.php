@@ -60,13 +60,6 @@ class TeamFbrefAlignmentService
         $this->log("✅ Proxy OK: {$proxy->name} ({$proxy->current_usage}/{$proxy->limit_monthly})");
 
         $scraper = app(FbrefScrapingService::class);
-        
-        // Passiamo l'anno specifica per ottenere la classifica corretta (es. 2025-2026)
-        $standings = $scraper->scrapeSerieAStandings($year);
-
-        if (empty($standings)) {
-            $this->log("⚠️ Scraping classifica fallito. Procedo solo tramite fallback per ogni team...");
-        }
 
         // Recupero squadre mancanti
         $query = Team::where(function($q) {
@@ -95,13 +88,45 @@ class TeamFbrefAlignmentService
         $matchedCount = 0;
         $errors = 0;
 
+        // Cache per le classifiche scaricate per stagione, per evitare di riscaricare la stessa classifica
+        $standingsCache = [];
+
+        // Se un anno specifico è passato globalmente, lo pre-carichiamo nella cache
+        if ($year) {
+            $standingsCache[$year] = $scraper->scrapeSerieAStandings($year);
+        }
+
         foreach ($missingTeams as $team) {
             if ($this->proxyCalls >= $limit) {
                 $this->log("⚠️ SOGLIA PROXY RAGGIUNTA ($limit). Stop.");
                 break;
             }
 
-            $result = $this->alignTeam($team, $standings, $year);
+            // Determiniamo la stagione corretta per questa squadra
+            $teamYear = $year;
+            if (!$teamYear) {
+                // Prendi la stagione più recente associata a questo team
+                $latestSeason = \App\Models\TeamSeason::where('team_id', $team->id)
+                    ->join('seasons', 'team_season.season_id', '=', 'seasons.id')
+                    ->orderBy('seasons.season_year', 'desc')
+                    ->select('seasons.season_year')
+                    ->first();
+                $teamYear = $latestSeason ? $latestSeason->season_year : null;
+            }
+
+            if (!$teamYear) {
+                $this->log("⚠️ Nessuna stagione trovata per il team '{$team->name}', salto.");
+                $errors++;
+                continue;
+            }
+
+            // Carica la classifica per quell'anno specifico dalla cache o via scraping
+            if (!isset($standingsCache[$teamYear])) {
+                $this->log("🔍 Scarico classifica per la stagione {$teamYear} per allineare '{$team->name}'...");
+                $standingsCache[$teamYear] = $scraper->scrapeSerieAStandings($teamYear);
+            }
+
+            $result = $this->alignTeam($team, $standingsCache[$teamYear], $teamYear);
             if ($result) $matchedCount++; else $errors++;
         }
 
@@ -121,7 +146,7 @@ class TeamFbrefAlignmentService
     public function alignTeam(Team $team, array $standings = [], ?int $year = null): bool
     {
         // Protezione: non sovrascrivere se già presente
-        if (!empty($team->fbref_id) && !empty($team->fbref_url)) {
+        if (!empty($team->fbref_id) && !empty($team->fbref_slug)) {
             $this->log("ℹ️ Skipping '{$team->name}': ID già presente ({$team->fbref_id})");
             return true;
         }
@@ -174,7 +199,7 @@ class TeamFbrefAlignmentService
         }
 
         if ($isValid) {
-            $team->fbref_url = $url;
+            $team->fbref_slug = basename(rtrim($url, '/'));
             
             if ($fbrefId) {
                 $team->fbref_id = $fbrefId;

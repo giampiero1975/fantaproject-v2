@@ -193,6 +193,18 @@
          $team = Team::whereNull('api_id')->where('name', 'LIKE', '%' . $trimmedName . '%')->first();
          if ($team) return $team->id;
 
+         // T4: Similarità reciproca (es. se "Venezia" è contenuto in "Venezia FC", o viceversa)
+         $orphans = Team::whereNull('api_id')->get();
+         foreach ($orphans as $orphan) {
+             $orphanName = strtolower($orphan->name);
+             $orphanShort = strtolower($orphan->short_name ?? '');
+             
+             if (str_contains($lowerName, $orphanName) || str_contains($orphanName, $lowerName) ||
+                 ($orphanShort && (str_contains($lowerName, $orphanShort) || str_contains($orphanShort, $lowerName)))) {
+                 return $orphan->id;
+             }
+         }
+
          return null;
      }
  }

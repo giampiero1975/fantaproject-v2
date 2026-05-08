@@ -33,11 +33,8 @@ class Dashboard extends BaseDashboard
         $currentSeasonModel = Season::where('is_current', true)->first();
         $lookbackStatus     = $monitor->getHistoricalLookback();
 
-        // ── Dati Squadre ────────────────────────────────────────────────────
-        $teamTotal = 0;
-        $teamWithApi   = 0;
-        $apiMissingCount  = 0;
-        $fbrefIncomplete  = false;
+        $teamWithFbref = 0;
+        $fbrefPct = 0;
 
         if ($currentSeasonModel) {
             $teamTotal = $currentSeasonModel->teams()->count();
@@ -49,6 +46,15 @@ class Dashboard extends BaseDashboard
                 ->where(function($q) {
                     $q->whereNull('fbref_slug')->orWhere('fbref_slug', '');
                 })->exists();
+
+            $teamWithFbref = $currentSeasonModel->teams()
+                ->whereNotNull('fbref_id')
+                ->where('fbref_id', '!=', '')
+                ->whereNotNull('fbref_slug')
+                ->where('fbref_slug', '!=', '')
+                ->count();
+                
+            $fbrefPct = $teamTotal > 0 ? round(($teamWithFbref / $teamTotal) * 100) : 0;
         }
 
         // ── Dati Storico ────────────────────────────────────────────────────
@@ -89,6 +95,7 @@ class Dashboard extends BaseDashboard
             'seasonStatus', 'seasonStatusLabel', 'proxyStatus',
             'currentSeasonModel', 'lookbackStatus',
             'teamTotal', 'teamWithApi', 'apiMissingCount', 'fbrefIncomplete',
+            'teamWithFbref', 'fbrefPct',
             'standingCount', 'standingTarget',
             'teamWithTier', 'tierDist',
             'playerTotal', 'playerFanta', 'playerApi', 'playerOrphan',

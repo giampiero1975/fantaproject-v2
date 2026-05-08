@@ -42,7 +42,12 @@ class ScraperApiProvider implements ProxyProviderInterface
 
         // 1. Carica parametri di default dal DB (se presenti)
         if (!empty($proxy->default_params)) {
-            $params = array_merge($params, $proxy->default_params);
+            $defaultParams = is_array($proxy->default_params) 
+                ? $proxy->default_params 
+                : json_decode($proxy->default_params, true);
+            if (is_array($defaultParams)) {
+                $params = array_merge($params, $defaultParams);
+            }
         }
 
         // 2. Logica Specifica FBref (JS Rendering & Premium)

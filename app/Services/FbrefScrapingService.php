@@ -80,15 +80,8 @@ class FbrefScrapingService
      */
     public function scrapeSerieAStandings(?int $year = null): array
     {
-        // Default URL per la stagione corrente
-        $url = "https://fbref.com/en/comps/11/Serie-A-Stats";
-        
-        if ($year) {
-            // Formato richiesto: 2025-2026/2025-2026-Serie-A-Stats
-            $nextYear = $year + 1;
-            $season = "{$year}-{$nextYear}";
-            $url = "https://fbref.com/en/comps/11/{$season}/{$season}-Serie-A-Stats";
-        }
+        $league = \App\Models\League::where('name', 'Serie A')->first();
+        $url = \App\Helpers\FbrefUrlHelper::getStandingsUrl($year, $league);
 
         Log::info("Inizio Scraping Classifica Serie A: {$url}");
 

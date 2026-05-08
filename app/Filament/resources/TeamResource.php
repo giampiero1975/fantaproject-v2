@@ -39,9 +39,9 @@ class TeamResource extends Resource
                 Forms\Components\TextInput::make('api_id')
                 ->numeric()
                 ->label('ID API'),
-                Forms\Components\TextInput::make('fbref_url')
-                ->url()
-                ->label('URL FBref'),
+                Forms\Components\TextInput::make('fbref_slug')
+                ->maxLength(255)
+                ->label('Slug FBref'),
                 Forms\Components\TextInput::make('fbref_id')
                 ->maxLength(20)
                 ->label('ID FBref'),
@@ -162,7 +162,7 @@ class TeamResource extends Resource
                         ->helperText('https://fbref.com/en/squads/dc56fe14/Milan-Stats')
                         ->url()
                         ->required()
-                        ->default(fn ($record) => $record->fbref_url),
+                        ->default(fn ($record) => $record->fbref_id && $record->fbref_slug ? "https://fbref.com/en/squads/{$record->fbref_id}/{$record->fbref_slug}" : null),
                     Forms\Components\TextInput::make('fbref_id')
                         ->label('ID FBref')
                         ->helperText('Es: dc56fe14')

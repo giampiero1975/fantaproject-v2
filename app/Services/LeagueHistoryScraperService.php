@@ -45,8 +45,8 @@ class LeagueHistoryScraperService
         $targetSeasons = SeasonHelper::getCompletedLookbackSeasons(4);
         $this->log("🔍 Stagioni da analizzare: " . implode(', ', array_keys($targetSeasons)));
 
-        // 3. Scarico Pagina History Principale
-        $slug = \Illuminate\Support\Str::slug($league->name);
+        // Usiamo la capitalizzazione esatta sostituendo gli spazi con trattini (FBref è case-sensitive)
+        $slug = str_replace(' ', '-', $league->name);
         $historyUrl = "https://fbref.com/en/comps/{$league->fbref_id}/history/{$slug}-Seasons";
         
         $html = $this->getHtmlWithProxy($historyUrl);
@@ -94,7 +94,8 @@ class LeagueHistoryScraperService
         if (!$proxy) return ['status' => 'error', 'message' => 'Proxy non disponibile'];
 
         $nextYear = $year + 1;
-        $slug = \Illuminate\Support\Str::slug($league->name);
+        // Usiamo la capitalizzazione esatta sostituendo gli spazi con trattini (FBref è case-sensitive)
+        $slug = str_replace(' ', '-', $league->name);
         $url = "https://fbref.com/en/comps/{$league->fbref_id}/{$year}-{$nextYear}/{$year}-{$nextYear}-{$slug}-Stats";
         
         $stats = $this->scrapeSeasonStandings($url, $year, $league, $saveStandings);
@@ -159,14 +160,14 @@ class LeagueHistoryScraperService
                     'name' => $teamName,
                     'short_name' => $teamName,
                     'fbref_id' => $fbrefId,
-                    'fbref_url' => "https://fbref.com$teamUrl",
+                    'fbref_slug' => basename($teamUrl),
                 ]);
             } elseif (empty($team->fbref_id) || empty($team->short_name)) {
                 // Colleghiamo la squadra esistente (creata via API) all'ID FBref per i futuri lookup
-                // E assicuriamoci di popolare lo short_name se manca
+                // E assicuriamoci di popolare lo short_name e lo slug se mancano
                 $team->update([
                     'fbref_id' => $team->fbref_id ?: $fbrefId,
-                    'fbref_url' => $team->fbref_url ?: "https://fbref.com$teamUrl",
+                    'fbref_slug' => $team->fbref_slug ?: basename($teamUrl),
                     'short_name' => $team->short_name ?: $teamName,
                 ]);
             }
@@ -246,8 +247,8 @@ class LeagueHistoryScraperService
 
             $startTime = microtime(true);
             
-            // Timeout fissato a 40 secondi richiesto
-            $response = Http::timeout(40)->withoutVerifying()->get($proxyUrl);
+            // Timeout aumentato a 120 secondi per accomodare tempi di risposta lenti del proxy
+            $response = Http::timeout(120)->withoutVerifying()->get($proxyUrl);
             $duration = round(microtime(true) - $startTime, 2);
 
             // Intercettazione Header per logica di reset silenzioso

@@ -21,7 +21,7 @@ class Team extends Model
         'logo_url',               // URL dello stemma (era crest_url)
         'api_id',                 // ID ufficiale football-data (era api_football_data_id)
         'fbref_id',               // ID per mappatura FBref
-        'fbref_url',              // URL per mappatura FBref
+        'fbref_slug',              // Slug per mappatura FBref
         'posizione_media_storica',// Classifica storica (era posizione_media)
         'tier_globale',           // Previsione forza complessiva (era tier)
         'fanta_platform_id',      // ID piattaforma Fanta (Gazzetta)

@@ -111,17 +111,6 @@
 
             </div>
 
-            <!-- Call to Action (Bottone se Coverage < 100%) -->
-            @if($this->metrics['progress'] < 100)
-                <div style="display: flex; justify-content: flex-end; margin-top: 16px; padding-top: 16px; border-top: 1px solid #f1f5f9;">
-                    <a href="{{ route('filament.admin.pages.manage-season') }}" 
-                       style="display: inline-flex; align-items: center; justify-content: center; padding: 8px 16px; background-color: #3b82f6; color: #ffffff; font-size: 12px; font-weight: 700; border-radius: 6px; text-decoration: none; box-shadow: 0 2px 4px rgba(59, 130, 246, 0.2); transition: background-color 0.2s;"
-                       onmouseover="this.style.backgroundColor='#2563eb'"
-                       onmouseout="this.style.backgroundColor='#3b82f6'">
-                        Vai all'Anagrafica Stagioni →
-                    </a>
-                </div>
-            @endif
 
         </div>
 

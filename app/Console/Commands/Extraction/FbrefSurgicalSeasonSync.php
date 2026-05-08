@@ -58,10 +58,10 @@ class FbrefSurgicalSeasonSync extends Command
         // 1. Recupero Teams Serie A (League ID 1) per la stagione
         $teams = Team::whereHas('teamSeasons', function($q) use ($seasonId) {
             $q->where('season_id', $seasonId)->where('league_id', 1);
-        })->whereNotNull('fbref_url')->get();
+        })->whereNotNull('fbref_slug')->get();
 
         if ($teams->isEmpty()) {
-            $msg = "Nessuna squadra con fbref_url trovata per questa stagione.";
+            $msg = "Nessuna squadra con fbref_slug trovata per questa stagione.";
             $this->warn($msg);
             $importLog->update(['status' => 'successo', 'details' => $msg]);
             return Command::SUCCESS;
@@ -196,22 +196,7 @@ class FbrefSurgicalSeasonSync extends Command
 
     protected function buildSurgicalUrl(Team $team, int $year): ?string
     {
-        $baseUrl = $team->fbref_url;
-        if (!preg_match('/squads\/([a-f0-9]+)\//', $baseUrl, $matches)) return null;
-        $fbrefId = $matches[1];
-
-        $parts = explode('/', rtrim($baseUrl, '/'));
-        $teamSlug = end($parts);
-        if (!str_contains($teamSlug, '-Stats')) {
-             $teamSlug = Str::slug($team->name) . "-Stats";
-        }
-
-        if ($year === SeasonHelper::getCurrentSeason()) {
-            return "https://fbref.com/en/squads/{$fbrefId}/{$teamSlug}";
-        }
-
-        $seasonPart = "{$year}-" . ($year + 1);
-        return "https://fbref.com/en/squads/{$fbrefId}/{$seasonPart}/{$teamSlug}";
+        return \App\Helpers\FbrefUrlHelper::getTeamUrl($team->fbref_id, $team->fbref_slug, $year);
     }
 
     protected function extractStatusCode(string $message): int

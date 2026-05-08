@@ -55,8 +55,8 @@ class CoverageStandings extends Page
                         throw new \Exception("Lega non configurata correttamente.");
                     }
 
-                    $nextYear = $year + 1;
-                    $slug = \Illuminate\Support\Str::slug($league->name);
+                    // Usiamo la capitalizzazione esatta sostituendo gli spazi con trattini (FBref è case-sensitive)
+                    $slug = str_replace(' ', '-', $league->name);
                     
                     // Composizione automatica dell'URL di FBref
                     $url = "https://fbref.com/en/comps/{$league->fbref_id}/{$year}-{$nextYear}/{$year}-{$nextYear}-{$slug}-Stats";

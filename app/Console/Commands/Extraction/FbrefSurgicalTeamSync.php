@@ -153,26 +153,7 @@ class FbrefSurgicalTeamSync extends Command
      */
     protected function buildSurgicalUrl(Team $team, int $year): ?string
     {
-        $baseUrl = $team->fbref_url;
-        
-        if (!$baseUrl || !preg_match('/squads\/([a-f0-9]+)\//', $baseUrl, $matches)) {
-            return null;
-        }
-        $fbrefId = $matches[1];
-
-        $parts = explode('/', rtrim($baseUrl, '/'));
-        $teamSlug = end($parts);
-        if (!str_contains($teamSlug, '-Stats')) {
-             $teamSlug = \Illuminate\Support\Str::slug($team->name) . "-Stats";
-        }
-
-        // Se è la stagione in corso (2025), usiamo l'URL principale senza l'anno nel path
-        if ($year === (int) SeasonHelper::getCurrentSeason()) {
-            return "https://fbref.com/en/squads/{$fbrefId}/{$teamSlug}";
-        }
-
-        $seasonPart = "{$year}-" . ($year + 1);
-        return "https://fbref.com/en/squads/{$fbrefId}/{$seasonPart}/{$teamSlug}";
+        return \App\Helpers\FbrefUrlHelper::getTeamUrl($team->fbref_id, $team->fbref_slug, $year);
     }
 }
 

@@ -102,7 +102,7 @@ class SyncFbref extends Page implements HasForms, HasActions, HasTable
                                             $q->whereHas('season', fn($s) => $s->where('season_year', $get('selectedSeasonYear')))
                                               ->whereHas('league', fn($l) => $l->where('league_id', 1)) // League ID 1 = Serie A
                                         )
-                                        ->whereNotNull('fbref_url')
+                                        ->whereNotNull('fbref_slug')
                                         ->oldest('name')
                                         ->pluck('name', 'id')
                                 )

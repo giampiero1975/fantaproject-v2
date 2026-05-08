@@ -49,7 +49,8 @@ class TeamDataService
         $proxyUrl = $proxyManager->getProxyUrl($proxy, $url);
         
         $startTime = microtime(true);
-        $response = Http::timeout(40)->withoutVerifying()->get($proxyUrl);
+        // Timeout aumentato a 120 secondi per accomodare tempi di risposta lenti del proxy
+        $response = Http::timeout(120)->withoutVerifying()->get($proxyUrl);
         
         if ($response->failed()) {
              $proxyManager->markAsUnreliable($proxy, "Status: " . $response->status());

@@ -15,7 +15,7 @@ class AlignTeamsCommand extends Command
     {
         if ($this->option('reset')) {
             $this->info('Reseting existing mappings...');
-            Team::query()->update(['fbref_id' => null, 'fbref_url' => null]);
+            Team::query()->update(['fbref_id' => null, 'fbref_slug' => null]);
         }
 
         $this->info('Starting alignment...');
