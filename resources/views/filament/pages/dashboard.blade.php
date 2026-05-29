@@ -23,11 +23,11 @@
             $s4_status = !$s3_ok ? 'blocked' : ($s4_ok ? 'ok' : ($teamWithTier > 0 ? 'partial' : 'missing'));
 
             // Step 5: Listone (ex s4)
-            $s5_ok = $playerFanta >= 400;
-            $s5_status = !$s4_ok ? 'blocked' : ($s5_ok ? 'ok' : ($playerFanta > 0 ? 'partial' : 'missing'));
+            $s5_ok = $step5Ok;
+            $s5_status = !$s4_ok ? 'blocked' : ($s5_ok ? 'ok' : ($playerTotal > 0 ? 'partial' : 'missing'));
 
             // Step 6: Calciatori (Sidebar 6)
-            $s6_ok = $playerFanta >= 400; // O un altro criterio di salute
+            $s6_ok = $playerTotal >= 400; 
             $s6_status = !$s5_ok ? 'blocked' : ($s6_ok ? 'ok' : 'partial');
 
             // Step 7: Sync (Sidebar 7, ex Step 6)

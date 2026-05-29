@@ -43,7 +43,7 @@ class SeasonHelper
         $years = $years ?? self::getLookbackYears();
         $current = self::getCurrentSeason();
         $seasons = [];
-        $seasons[$current] = self::formatYear($current) . " (In Corso)";
+        $seasons[$current] = self::formatYear($current);
         
         $lastConcluded = $current - 1;
         for ($i = 0; $i < $years; $i++) {
