@@ -285,14 +285,35 @@
         {{-- ══════════════════════════════════════════════════════════════════ --}}
         {{-- STEP 4 — Calcolo Tier Squadre                                    --}}
         {{-- ══════════════════════════════════════════════════════════════════ --}}
-        @php $th = \App\Helpers\StepHelper::stepTheme($s4_status) @endphp
-        <div x-data="{ open: false }" style="width:100%; border-radius:8px; border:1px solid #e5e7eb; overflow:hidden; box-shadow:0 1px 3px rgba(0,0,0,.07); {{ $th['border_style'] }}">
-            <div @click="open = !open" style="cursor:pointer; display:flex; align-items:center; justify-content:space-between; padding:10px 16px; {{ $th['header_style'] }}">
-                <div style="display:flex; align-items:center; gap:12px;">
-                    <span style="font-weight:700; color:#1f2937; font-size:0.875rem;">
+        @php 
+            $th = \App\Helpers\StepHelper::stepTheme($s4_status);
+            $s4_status_label = 'VUOTO';
+            $s4_badge_color = 'rose';
+            if ($s4_status === 'ok') {
+                $s4_status_label = 'COMPLETO';
+                $s4_badge_color = 'emerald';
+            } elseif ($s4_status === 'partial') {
+                $s4_status_label = 'PARZIALE';
+                $s4_badge_color = 'amber';
+            } elseif ($s4_status === 'blocked') {
+                $s4_status_label = 'BLOCCATO';
+                $s4_badge_color = 'slate';
+            }
+        @endphp
+        <div x-data="{ open: false }" 
+             style="width:100%; border-radius:8px; border:1px solid #e5e7eb; overflow:hidden; box-shadow:0 1px 3px rgba(0,0,0,.07); {{ $th['border_style'] }} margin-bottom: 16px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #ffffff;">
+            
+            <div @click="open = !open" 
+                 style="cursor:pointer; display:flex; align-items:center; justify-content:space-between; padding:12px 16px; {{ $th['header_style'] }} user-select: none;">
+                
+                <div style="display:flex; align-items:center; gap:16px;">
+                    <span style="font-weight:700; color:#1f2937; font-size:0.875rem; display: flex; align-items: center; gap: 8px;">
                         {{ $th['icon'] }} 4. Calcolo Tier Squadre
                     </span>
-                    <span style="{{ $th['badge_style'] }}">{{ $th['badge_label'] }}</span>
+                    <!-- Status Badge (Stile Pillola come Step 3) -->
+                    <span style="font-size:0.75rem; font-weight:700; color: {{ $s4_badge_color === 'emerald' ? '#047857' : ($s4_badge_color === 'rose' ? '#b91c1c' : ($s4_badge_color === 'slate' ? '#475569' : '#b45309')) }}; background: {{ $s4_badge_color === 'emerald' ? '#ecfdf5' : ($s4_badge_color === 'rose' ? '#fef2f2' : ($s4_badge_color === 'slate' ? '#f1f5f9' : '#fffbeb')) }}; border:1px solid {{ $s4_badge_color === 'emerald' ? '#a7f3d0' : ($s4_badge_color === 'rose' ? '#fecaca' : ($s4_badge_color === 'slate' ? '#cbd5e1' : '#fde68a')) }}; padding:2px 10px; border-radius:12px; text-transform: uppercase;">
+                        {{ $s4_status_label }}
+                    </span>
                 </div>
                 <div style="display:flex; align-items:center; gap:12px;">
                     <span style="font-size: 0.75rem; font-weight: 600; color: #64748b;">Dettagli</span>
