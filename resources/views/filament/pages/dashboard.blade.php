@@ -288,18 +288,26 @@
         @php $th = \App\Helpers\StepHelper::stepTheme($s4_status) @endphp
         <div x-data="{ open: false }" style="width:100%; border-radius:8px; border:1px solid #e5e7eb; overflow:hidden; box-shadow:0 1px 3px rgba(0,0,0,.07); {{ $th['border_style'] }}">
             <div @click="open = !open" style="cursor:pointer; display:flex; align-items:center; justify-content:space-between; padding:10px 16px; {{ $th['header_style'] }}">
-                <span style="font-weight:700; color:#1f2937; font-size:0.875rem;">
-                    {{ $th['icon'] }} 4. Calcolo Tier Squadre
-                </span>
                 <div style="display:flex; align-items:center; gap:12px;">
+                    <span style="font-weight:700; color:#1f2937; font-size:0.875rem;">
+                        {{ $th['icon'] }} 4. Calcolo Tier Squadre
+                    </span>
                     <span style="{{ $th['badge_style'] }}">{{ $th['badge_label'] }}</span>
-                    <svg x-bind:style="open ? 'transform: rotate(180deg);' : ''" style="transition: transform 0.2s; width:20px; height:20px; color:#6b7280;" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                    </svg>
+                </div>
+                <div style="display:flex; align-items:center; gap:12px;">
+                    <span style="font-size: 0.75rem; font-weight: 600; color: #64748b;">Dettagli</span>
+                    <span :style="open ? 'transform: rotate(180deg);' : 'transform: rotate(0deg);'" 
+                          style="display: inline-block; transition: transform 0.2s ease; font-size: 0.75rem; color: #64748b; font-weight: bold;">
+                        ▼
+                    </span>
                 </div>
             </div>
             
-            <div x-show="open" x-collapse>
+            <div x-show="open" 
+                 x-transition:enter="transition ease-out duration-200"
+                 x-transition:enter-start="opacity-0 transform scale-95"
+                 x-transition:enter-end="opacity-100 transform scale-100"
+                 style="display: none; padding: 16px; background-color: #ffffff; border-top: 1px solid #f1f5f9;">
                 @if($s4_status === 'blocked')
                     <div style="padding:16px; font-size:0.875rem; color:#6b7280; background-color:#f9fafb;">
                         Devi completare lo step precedente (3. Storico Classifiche) prima di sbloccare questo step.
@@ -356,18 +364,36 @@
                                 </p>
                             </div>
 
-                            <!-- CARD 3: SQUADRE D'ELITE -->
-                            <div x-tooltip="'Numero di squadre assegnate in assoluto alla fascia più alta di punteggio (Tier 1).'"
+                            <!-- CARD 3: DISTRIBUZIONE TIER -->
+                            <div x-tooltip="'Conteggio esatto delle squadre assegnate a ciascun Tier (dal livello 1 al livello 5).'"
                                  style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px; display: flex; flex-direction: column; justify-content: space-between; min-height: 150px; text-align: left; cursor: help;">
                                 <div>
-                                    <p style="font-size: 10px; font-weight: 700; color: #94a3b8; text-transform: uppercase; margin: 0 0 8px 0; letter-spacing: 0.05em;">SQUADRE D'ELITE</p>
-                                    <div style="display: flex; align-items: center; gap: 8px; margin-top: 4px;">
-                                        <p style="font-size: 24px; font-weight: 900; color: #eab308; margin: 0;">{{ $tierDist[1] ?? 0 }}</p>
-                                        <svg style="width:24px; height:24px; color:#eab308;" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"></path></svg>
+                                    <p style="font-size: 10px; font-weight: 700; color: #94a3b8; text-transform: uppercase; margin: 0 0 8px 0; letter-spacing: 0.05em;">DISTRIBUZIONE TIER</p>
+                                    <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; margin-top: 12px; text-align: center;">
+                                        <div>
+                                            <p style="font-size: 16px; font-weight: 900; color: #eab308; margin: 0;">{{ $tierDist[1] ?? 0 }}</p>
+                                            <p style="font-size: 9px; font-weight: 700; color: #94a3b8; text-transform: uppercase;">T1</p>
+                                        </div>
+                                        <div>
+                                            <p style="font-size: 16px; font-weight: 900; color: #3b82f6; margin: 0;">{{ $tierDist[2] ?? 0 }}</p>
+                                            <p style="font-size: 9px; font-weight: 700; color: #94a3b8; text-transform: uppercase;">T2</p>
+                                        </div>
+                                        <div>
+                                            <p style="font-size: 16px; font-weight: 900; color: #64748b; margin: 0;">{{ $tierDist[3] ?? 0 }}</p>
+                                            <p style="font-size: 9px; font-weight: 700; color: #94a3b8; text-transform: uppercase;">T3</p>
+                                        </div>
+                                        <div>
+                                            <p style="font-size: 16px; font-weight: 900; color: #f97316; margin: 0;">{{ $tierDist[4] ?? 0 }}</p>
+                                            <p style="font-size: 9px; font-weight: 700; color: #94a3b8; text-transform: uppercase;">T4</p>
+                                        </div>
+                                        <div>
+                                            <p style="font-size: 16px; font-weight: 900; color: #ef4444; margin: 0;">{{ $tierDist[5] ?? 0 }}</p>
+                                            <p style="font-size: 9px; font-weight: 700; color: #94a3b8; text-transform: uppercase;">T5</p>
+                                        </div>
                                     </div>
                                 </div>
                                 <p style="font-size: 11px; color: #64748b; margin: 12px 0 0 0; line-height: 1.4;">
-                                    I top club schiacciasassi. I loro giocatori riceveranno i bonus moltiplicatori massimi nelle proiezioni.
+                                    Spaccato esatto dei Tier assegnati al tabellone corrente.
                                 </p>
                             </div>
 
