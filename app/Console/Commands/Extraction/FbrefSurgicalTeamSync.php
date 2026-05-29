@@ -88,59 +88,109 @@ class FbrefSurgicalTeamSync extends Command
         $this->info("🚀 AVVIO SESSIONE SYNC CHIRURGICO FBREF (Rose)");
         $this->info("Stagione: " . SeasonHelper::formatYear($seasonYear));
         $this->info("Target: " . ($isAll ? "Intera Stagione (" . $teams->count() . " team)" : "Team: {$teams->first()->name}"));
+        // Inizializzazione Proxy Manager
+        $proxyManager = app(ProxyManagerService::class);
 
-        // Preparazione URL e Mappa Context per rintracciare i team post-scraping
-        $urlMap = [];
+        $totalProcessed = 0;
+        $totalUpdated = 0;
+
         foreach ($teams as $team) {
+            $this->warn("\n------------------------------------------------");
+            $this->info("⚽️ SQUADRA: {$team->name}");
+
+            // Gap Analysis
+            $rosterCount = PlayerSeasonRoster::where('team_id', $team->id)->where('season_id', $season->id)->count();
+            $missingCount = PlayerSeasonRoster::where('team_id', $team->id)->where('season_id', $season->id)
+                ->whereHas('player', fn($q) => $q->withTrashed()->whereNull('fbref_id'))
+                ->count();
+
+            $this->comment("📊 Gap rilevato: {$missingCount}/{$rosterCount} calciatori senza fbref_id.");
+
             $url = $this->buildSurgicalUrl($team, $seasonYear);
-            if ($url) {
-                $urlMap[$url] = $team;
-            }
-        }
-
-        if (empty($urlMap)) {
-            $this->error("Nessun URL FBref valido rintracciabile per i target selezionati.");
-            return Command::FAILURE;
-        }
-
-        $this->info("🌐 Inizio Scraping via dispatchScrape (" . count($urlMap) . " URL)...");
-
-        try {
-            // Delega Totale al Service (Gestione Proxy/Pipeline automatica)
-            // Lo Scoping è 'surgical_sync' per ID/URL
-            $response = $this->scrapingService->dispatchScrape(array_keys($urlMap), [
-                'season_id' => $season->id,
-                'season_year' => $seasonYear,
-                'dry_run' => $this->option('dry-run'),
-                'is_surgical' => true // Forza la logica di solo mapping
-            ]);
-
-            // Se la risposta è un oggetto (ScrapingJob), siamo in modalità Pipeline
-            if ($response instanceof \App\Models\ScrapingJob) {
-                $this->warn("⚙️ Richiesta massiva avviata in modalità PIPELINE (Job ID: {$response->job_id})");
-                $this->info("I dati verranno elaborati in background via Webhook.");
-                return Command::SUCCESS;
+            if (!$url) {
+                $this->error("❌ Impossibile generare URL per {$team->name}");
+                continue;
             }
 
-            // Modalità DIRETTA (Sincrona: risposta success/failed per URL)
-            $this->info("✅ Scraping Diretto completato. Elaborazione risultati...");
+            $this->line("🌐 Scraping: {$url}");
+            
+            $maxRetries = 3;
+            $attempt = 0;
+            $success = false;
+            $playersData = [];
 
-            foreach ($response as $url => $status) {
-                $team = $urlMap[$url];
-                if ($status === 'success') {
-                    $this->info("✔️ Sync completato con successo per: {$team->name}");
-                } else {
-                    $this->error("❌ Sync fallito per: {$team->name} (URL: {$url})");
+            while ($attempt < $maxRetries && !$success) {
+                $attempt++;
+                
+                $proxy = $proxyManager->getBestProxy();
+                if (!$proxy) {
+                    $this->error("❌ Nessun proxy disponibile.");
+                    break;
+                }
+
+                try {
+                    $this->scrapingService->setTargetUrl($url);
+                    $scrapedData = $this->scrapingService->scrapeTeamStats();
+                    
+                    if (isset($scrapedData['error'])) {
+                        throw new \Exception($scrapedData['error']);
+                    }
+
+                    $playersData = $scrapedData['stats_standard'] ?? [];
+                    if (empty($playersData)) {
+                        throw new \Exception("Tabella stats_standard non trovata.");
+                    }
+
+                    $success = true;
+                } catch (\Exception $e) {
+                    $status = 500; // Valore di default
+                    if (preg_match('/Status:\s*(\d{3})/', $e->getMessage(), $matches)) {
+                        $status = (int)$matches[1];
+                    }
+                    
+                    if ($status == 403 || $status == 429 || str_contains($e->getMessage(), 'Account out of credits')) {
+                        $this->error("🛑 Proxy '{$proxy->name}' ESAUSTO (Status {$status}). Switch a priority successiva...");
+                        $proxyManager->markAsUnreliable($proxy, "Credit Limit Reached ({$status})");
+                        $attempt--; 
+                    } else if ($status == 500 || $status == 503) {
+                        $this->error("⚠️ Proxy '{$proxy->name}' Errore Temporaneo 500 (Tentativo {$attempt}/{$maxRetries})...");
+                        if ($attempt >= $maxRetries) {
+                            $proxyManager->markAsUnreliable($proxy, "Persistent 500 error after {$maxRetries} tries");
+                        } else {
+                            sleep(2);
+                        }
+                    } else {
+                        $this->error("❌ Errore inaspettato: " . $e->getMessage());
+                        break;
+                    }
                 }
             }
 
-            $this->info("🏁 Operazione conclusa.");
+            if (!$success) {
+                $this->error("❌ Sync fallito per {$team->name} dopo {$maxRetries} tentativi.");
+                continue;
+            }
 
-        } catch (\Exception $e) {
-            $this->error("ERRORE CRITICO: " . $e->getMessage());
-            return Command::FAILURE;
+            // Sync con Rigid Matching
+            $this->info("✅ Dati ricevuti. Avvio matching chirurgico...");
+            
+            $syncResults = $this->scrapingService->syncPlayersData(
+                $playersData, 
+                $team->id, 
+                $season->id, 
+                $this->option('dry-run'),
+                true
+            );
+
+            $this->line("✨ Match: {$syncResults['matched']} | Aggiornati: {$syncResults['updated']} | Noise (Ignorati): {$syncResults['noise']}");
+            
+            $totalProcessed += $syncResults['total'] ?? 0;
+            $totalUpdated += $syncResults['updated'] ?? 0;
         }
 
+        $summary = "🏁 Operazione conclusa. Processati: {$totalProcessed}, Aggiornati: {$totalUpdated}";
+        $this->info("\n" . $summary);
+        
         return Command::SUCCESS;
     }
 

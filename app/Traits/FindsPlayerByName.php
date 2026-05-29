@@ -36,9 +36,11 @@ trait FindsPlayerByName
         if (isset($slugMap[$slug])) {
             $candidates = is_array($slugMap[$slug]) ? $slugMap[$slug] : [$slugMap[$slug]];
             foreach ($candidates as $p) {
-                // Se abbiamo filtri team o ruolo, proviamo a restringere
-                if ($teamId && method_exists($p, 'rosters') && !$p->rosters->contains('team_id', $teamId)) continue;
-                if ($role && $p->role !== $role) continue;
+                // Se abbiamo filtri team o ruolo, li usiamo SOLO se ci sono più omonimi (collisione)
+                if (count($candidates) > 1) {
+                    if ($teamId && method_exists($p, 'rosters') && !$p->rosters->contains('team_id', $teamId)) continue;
+                    if ($role && $p->role !== $role) continue;
+                }
                 return $p;
             }
         }
@@ -48,8 +50,8 @@ trait FindsPlayerByName
         foreach ($slugMap as $s => $pGroup) {
             $p = is_array($pGroup) ? $pGroup[0] : $pGroup;
             if ($this->namesAreSimilar($name, $p->name)) {
-                if ($teamId && method_exists($p, 'rosters') && !$p->rosters->contains('team_id', $teamId)) continue;
-                if ($role && $p->role !== $role) continue;
+                // Anche qui, allentiamo il vincolo: se c'è un match fuzzy forte, lo prendiamo
+                // a meno che non ci siano palesi conflitti di omonimia (rarissimi).
                 return $p;
             }
         }
@@ -104,10 +106,6 @@ trait FindsPlayerByName
         // Scansione della collection in RAM (molto più veloce del Chunk DB)
         foreach ($players as $p) {
             if ($this->namesAreSimilar($name, $p->name)) {
-                // Se abbiamo teamId o ruolo, verifichiamo la coerenza se possibile
-                if ($teamId && !$p->rosters->contains('team_id', $teamId)) continue;
-                if ($role && !$p->rosters->contains('role', $role)) continue;
-                
                 return $p;
             }
         }

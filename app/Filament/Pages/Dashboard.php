@@ -98,6 +98,7 @@ class Dashboard extends BaseDashboard
         $playerTotal = Player::count();
         $playerFanta = Player::whereNotNull('fanta_platform_id')->count();
         $playerApi   = Player::whereNotNull('api_football_data_id')->count();
+        $playerFbref = Player::whereNotNull('fbref_id')->count();
         $playerOrphan = Player::whereNull('parent_team_id')->count();
 
         $expectedSeasons = \App\Helpers\SeasonHelper::getLookbackSeasons();
@@ -122,9 +123,9 @@ class Dashboard extends BaseDashboard
 
         // ── Dati Sync ───────────────────────────────────────────────────────
         $pct = ($playerFanta > 0) ? round(($playerApi / $playerFanta) * 100, 1) : 0;
-        $lastSync = ImportLog::where('import_type', 'sync_rose_api')
-            ->where('status', 'successo')
-            ->latest()->first();
+        $lastSync = ImportLog::where('import_type', 'like', 'sync_rose_api%')
+            ->latest('created_at')
+            ->first();
 
         // ── Step Logic ──────────────────────────────────────────────────────
         $step1Ok = $currentSeasonModel && $lookbackStatus['is_ready'];
@@ -132,6 +133,9 @@ class Dashboard extends BaseDashboard
         $step3Ok = $standingCount >= $standingTarget;
         $step4Ok = $teamWithTier >= 20;
         $step5Ok = $missingListoneSeasons === 0;
+        $step6Ok = $playerFanta >= 400; // Listone
+        $step7Ok = ($playerFanta > 0) && (($playerApi / $playerFanta) >= 0.85); // API
+        $step8Ok = ($playerFanta > 0) && (($playerFbref / $playerFanta) >= 0.85); // FBref
 
         return compact(
             'seasonStatus', 'seasonStatusLabel', 'proxyStatus',
@@ -140,9 +144,9 @@ class Dashboard extends BaseDashboard
             'teamWithFbref', 'fbrefPct',
             'standingCount', 'standingTarget', 'perfectTeams', 's3LastUpdate',
             'teamWithTier', 'tierDist',
-            'playerTotal', 'playerFanta', 'playerApi', 'playerOrphan',
+            'playerTotal', 'playerFanta', 'playerApi', 'playerFbref', 'playerOrphan',
             'lastListone', 'lastSync', 'pct', 'listoneCoverage', 'missingListoneSeasons',
-            'step1Ok', 'step2Ok', 'step3Ok', 'step4Ok', 'step5Ok'
+            'step1Ok', 'step2Ok', 'step3Ok', 'step4Ok', 'step5Ok', 'step6Ok', 'step7Ok', 'step8Ok'
         );
     }
 

@@ -9,30 +9,35 @@
             // Step 1: Stagione
             $s1_ok = $currentSeasonModel && $lookbackStatus['is_ready'];
             $s1_status = $s1_ok ? 'ok' : (($currentSeasonModel || $lookbackStatus['ready_count'] > 0) ? 'partial' : 'missing');
-
-            // Step 2: Squadre (ex s1)
+            
+            // Step 2: Squadre
             $s2_ok = ($teamTotal >= 20 && $teamWithApi >= 20 && !$fbrefIncomplete);
-            $s2_status = !$currentSeasonModel ? 'blocked' : ($s2_ok ? 'ok' : ($teamTotal > 0 ? 'partial' : 'missing'));
+            $s2_status = !$s1_ok ? 'blocked' : ($s2_ok ? 'ok' : ($teamTotal > 0 ? 'partial' : 'missing'));
 
-            // Step 3: Storico (ex s2)
+            // Step 3: Storico
             $s3_ok = $standingCount >= $standingTarget;
             $s3_status = !$s2_ok ? 'blocked' : ($s3_ok ? 'ok' : ($standingCount > 0 ? 'partial' : 'missing'));
 
-            // Step 4: Tier (ex s3)
+            // Step 4: Tier
             $s4_ok = $teamWithTier >= 20;
-            $s4_status = !$s3_ok ? 'blocked' : ($s4_ok ? 'ok' : ($teamWithTier > 0 ? 'partial' : 'missing'));
+            $s4_status = !$s2_ok ? 'blocked' : ($s4_ok ? 'ok' : ($teamWithTier > 0 ? 'partial' : 'missing'));
 
-            // Step 5: Listone (ex s4)
+            // Step 5: Listone
             $s5_ok = $step5Ok;
-            $s5_status = !$s4_ok ? 'blocked' : ($s5_ok ? 'ok' : ($playerTotal > 0 ? 'partial' : 'missing'));
+            $s5_status = !$s1_ok ? 'blocked' : ($s5_ok ? 'ok' : ($playerTotal > 0 ? 'partial' : 'missing'));
 
-            // Step 6: Calciatori (Sidebar 6)
+            // Step 6: Calciatori
             $s6_ok = $playerTotal >= 400; 
-            $s6_status = !$s5_ok ? 'blocked' : ($s6_ok ? 'ok' : 'partial');
+            $s6_status = !$s5_ok ? 'blocked' : ($s6_ok ? 'ok' : ($playerTotal > 0 ? 'partial' : 'missing'));
 
-            // Step 7: Sync (Sidebar 7, ex Step 6)
-            $s7_ok = $pct >= 90;
+            // Step 7: Sync API
+            $s7_ok = $pct >= 85;
             $s7_status = !$s6_ok ? 'blocked' : ($s7_ok ? 'ok' : ($pct > 0 ? 'partial' : 'missing'));
+
+            // Step 8: Sync FBref
+            $fbrefPctComputed = $playerFanta > 0 ? round(($playerFbref / $playerFanta) * 100, 1) : 0;
+            $s8_ok = $fbrefPctComputed >= 85;
+            $s8_status = !$s7_ok ? 'blocked' : ($s8_ok ? 'ok' : ($fbrefPctComputed > 0 ? 'partial' : 'missing'));
 
             $tierSummary = collect($tierDist)->map(fn($c,$t) => "T{$t}: {$c}")->implode(' · ');
         @endphp
@@ -762,6 +767,107 @@
                            onmouseover="this.style.backgroundColor='#2563eb'"
                            onmouseout="this.style.backgroundColor='#3b82f6'">
                             Lancia Sync API →
+                        </a>
+                    </div>
+                @endif
+            </div>
+        </div>
+
+        <!-- ==========================================
+             STEP 8: Sync FBref (Stats)
+        =========================================== -->
+        <div x-data="{ open: false }" style="border: 1px solid #e2e8f0; border-radius: 12px; background-color: #ffffff; box-shadow: 0 1px 3px rgba(0,0,0,0.05); overflow: hidden;">
+            @php
+            $th = \App\Helpers\StepHelper::stepTheme($s8_status);
+            $s8_status_label = 'VUOTO';
+            $s8_badge_color  = 'rose';
+            if ($s8_status === 'ok') {
+                $s8_status_label = 'COMPLETO';
+                $s8_badge_color = 'emerald';
+            } elseif ($s8_status === 'partial') {
+                $s8_status_label = 'PARZIALE';
+                $s8_badge_color = 'amber';
+            } elseif ($s8_status === 'blocked') {
+                $s8_status_label = 'BLOCCATO';
+                $s8_badge_color = 'slate';
+            }
+            
+            // Query for last fbref sync log
+            $lastFbrefSync = \App\Models\ImportLog::where('import_type', 'like', 'sync_rose_fbref%')->latest('created_at')->first();
+            @endphp
+            
+            <div @click="open = !open" 
+                 style="padding:16px 20px; cursor:pointer; display:flex; justify-content:space-between; align-items:center; background-color: {{ $s8_status === 'blocked' ? '#f8fafc' : ($s8_status === 'ok' ? '#f0fdf4' : ($s8_status === 'partial' ? '#fffbeb' : '#ffffff')) }}; transition: background-color 0.2s;"
+                 onmouseover="this.style.backgroundColor='#f1f5f9'"
+                 onmouseout="this.style.backgroundColor='{{ $s8_status === 'blocked' ? '#f8fafc' : ($s8_status === 'ok' ? '#f0fdf4' : ($s8_status === 'partial' ? '#fffbeb' : '#ffffff')) }}'">
+                <div style="display:flex; align-items:center; gap:16px;">
+                    <span style="font-weight:700; color:#1f2937; font-size:0.875rem; display: flex; align-items: center; gap: 8px;">
+                        {{ $th['icon'] }} 8. Sync FBref (Stats)
+                    </span>
+                    <span style="font-size:0.75rem; font-weight:700; color: {{ $s8_badge_color === 'emerald' ? '#047857' : ($s8_badge_color === 'rose' ? '#b91c1c' : ($s8_badge_color === 'slate' ? '#475569' : '#b45309')) }}; background: {{ $s8_badge_color === 'emerald' ? '#ecfdf5' : ($s8_badge_color === 'rose' ? '#fef2f2' : ($s8_badge_color === 'slate' ? '#f1f5f9' : '#fffbeb')) }}; border:1px solid {{ $s8_badge_color === 'emerald' ? '#a7f3d0' : ($s8_badge_color === 'rose' ? '#fecaca' : ($s8_badge_color === 'slate' ? '#cbd5e1' : '#fde68a')) }}; padding:2px 10px; border-radius:12px; text-transform: uppercase;">
+                        {{ $s8_status_label }}
+                    </span>
+                </div>
+                <div style="display:flex; align-items:center; gap:12px;">
+                    <span style="font-size: 0.75rem; font-weight: 600; color: #64748b;">Dettagli</span>
+                    <span :style="open ? 'transform: rotate(180deg);' : 'transform: rotate(0deg);'" 
+                          style="display: inline-block; transition: transform 0.2s ease; font-size: 0.75rem; color: #64748b; font-weight: bold;">
+                        ▼
+                    </span>
+                </div>
+            </div>
+            
+            <div x-show="open" 
+                 x-transition:enter="transition ease-out duration-200"
+                 x-transition:enter-start="opacity-0 transform scale-95"
+                 x-transition:enter-end="opacity-100 transform scale-100"
+                 style="display: none; padding: 16px; background-color: #ffffff; border-top: 1px solid #f1f5f9;">
+                
+                @if($s8_status === 'blocked')
+                    <div style="padding: 16px; background-color: #f8fafc; border-radius: 8px; text-align: center; color: #64748b; font-size: 14px;">
+                        Devi completare lo step precedente (7. Sync API-Football) prima di sbloccare questo step.
+                    </div>
+                @else
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 16px;">
+                        <div x-tooltip="'Percentuale di calciatori ufficiali agganciati ai dati FBref.'"
+                             style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px; display: flex; flex-direction: column; justify-content: space-between; min-height: 150px; text-align: left; cursor: help;">
+                            <div>
+                                <p style="font-size: 10px; font-weight: 700; color: #94a3b8; text-transform: uppercase; margin: 0 0 8px 0; letter-spacing: 0.05em;">COPERTURA ID FBREF</p>
+                                <div style="display: flex; align-items: center; gap: 8px; margin-top: 4px;">
+                                    <p style="font-size: 24px; font-weight: 900; color: {{ $fbrefPctComputed < 90 ? '#ef4444' : '#10b981' }}; margin: 0;">{{ $playerFbref }}</p>
+                                    <span style="font-size: 12px; font-weight: 700; color: #64748b;">su {{ $playerFanta }} ({{ $fbrefPctComputed }}%)</span>
+                                </div>
+                                <div style="margin-top: 8px; height: 8px; background-color: #e2e8f0; border-radius: 4px; overflow: hidden; border: 1px solid #e2e8f0;">
+                                    <div style="height: 100%; background: {{ $fbrefPctComputed < 90 ? 'linear-gradient(to right, #ef4444, #b91c1c)' : 'linear-gradient(to right, #10b981, #059669)' }}; width: {{ $fbrefPctComputed }}%; border-radius: 4px;"></div>
+                                </div>
+                            </div>
+                            <p style="font-size: 11px; color: #64748b; margin: 12px 0 0 0; line-height: 1.4;">
+                                Target minimo: 90%. Essenziale per le statistiche avanzate (xG, xA).
+                            </p>
+                        </div>
+
+                        <div x-tooltip="'Data dell\'ultimo scaricamento intensivo delle rose via FBref.'"
+                             style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px; display: flex; flex-direction: column; justify-content: space-between; min-height: 150px; text-align: left; cursor: help;">
+                            <div>
+                                <p style="font-size: 10px; font-weight: 700; color: #94a3b8; text-transform: uppercase; margin: 0 0 8px 0; letter-spacing: 0.05em;">ULTIMO SYNC MASSIVO</p>
+                                <div style="display: flex; align-items: center; gap: 8px; margin-top: 4px;">
+                                    <p style="font-size: 20px; font-weight: 900; color: #1e293b; margin: 0;">
+                                        {{ $lastFbrefSync ? \Carbon\Carbon::parse($lastFbrefSync->created_at)->format('d/m/Y H:i') : 'Mai effettuato' }}
+                                    </p>
+                                </div>
+                            </div>
+                            <p style="font-size: 11px; color: #64748b; margin: 12px 0 0 0; line-height: 1.4;">
+                                Mappa i giocatori con l'ID FBref per abilitare le stats.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div style="display: flex; justify-content: flex-end; margin-top: 16px; padding-top: 16px; border-top: 1px solid #f1f5f9;">
+                        <a href="{{ route('filament.admin.pages.sync-fbref') }}" 
+                           style="display: inline-flex; align-items: center; justify-content: center; padding: 8px 16px; background-color: #3b82f6; color: #ffffff; font-size: 12px; font-weight: 700; border-radius: 6px; text-decoration: none; box-shadow: 0 2px 4px rgba(59, 130, 246, 0.2); transition: background-color 0.2s;"
+                           onmouseover="this.style.backgroundColor='#2563eb'"
+                           onmouseout="this.style.backgroundColor='#3b82f6'">
+                            Lancia Sync FBref →
                         </a>
                     </div>
                 @endif
