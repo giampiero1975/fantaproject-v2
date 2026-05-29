@@ -100,7 +100,7 @@ class Dashboard extends BaseDashboard
         $playerApi   = Player::whereNotNull('api_football_data_id')->count();
         $playerOrphan = Player::whereNull('parent_team_id')->count();
 
-        $lastListone = ImportLog::where('import_type', 'listone_gazzetta')
+        $lastListone = ImportLog::where('import_type', 'roster_quotazioni')
             ->where('status', 'successo')
             ->latest()->first();
 

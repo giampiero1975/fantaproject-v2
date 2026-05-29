@@ -437,16 +437,126 @@
         {{-- ══════════════════════════════════════════════════════════════════ --}}
         {{-- STEP 5 — Importazione Listone Quotazioni                         --}}
         {{-- ══════════════════════════════════════════════════════════════════ --}}
-        @php $th = \App\Helpers\StepHelper::stepTheme($s5_status) @endphp
-        <div style="width:100%; border-radius:8px; border:1px solid #e5e7eb; overflow:hidden; box-shadow:0 1px 3px rgba(0,0,0,.07); {{ $th['border_style'] }}">
-            <div style="display:flex; align-items:center; justify-content:space-between; padding:10px 16px; {{ $th['header_style'] }}">
-                <span style="font-weight:700; color:#1f2937; font-size:0.875rem;">
-                    {{ $th['icon'] }} 5. Importazione Listone Quotazioni
-                </span>
-                <div style="display:flex; align-items:center; gap:8px;">
-                    <a href="{{ route('filament.admin.pages.importa-listone') }}" class="text-xs font-bold text-blue-600 hover:underline">Vai a Import</a>
-                    <span style="{{ $th['badge_style'] }}">{{ $th['badge_label'] }}</span>
+        @php 
+            $th = \App\Helpers\StepHelper::stepTheme($s5_status);
+            $s5_status_label = 'VUOTO';
+            $s5_badge_color = 'rose';
+            if ($s5_status === 'ok') {
+                $s5_status_label = 'COMPLETO';
+                $s5_badge_color = 'emerald';
+            } elseif ($s5_status === 'partial') {
+                $s5_status_label = 'PARZIALE';
+                $s5_badge_color = 'amber';
+            } elseif ($s5_status === 'blocked') {
+                $s5_status_label = 'BLOCCATO';
+                $s5_badge_color = 'slate';
+            }
+        @endphp
+        <div x-data="{ open: false }" 
+             style="width:100%; border-radius:8px; border:1px solid #e5e7eb; overflow:hidden; box-shadow:0 1px 3px rgba(0,0,0,.07); {{ $th['border_style'] }} margin-bottom: 16px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #ffffff;">
+            
+            <div @click="open = !open" 
+                 style="cursor:pointer; display:flex; align-items:center; justify-content:space-between; padding:12px 16px; {{ $th['header_style'] }} user-select: none;">
+                
+                <div style="display:flex; align-items:center; gap:16px;">
+                    <span style="font-weight:700; color:#1f2937; font-size:0.875rem; display: flex; align-items: center; gap: 8px;">
+                        {{ $th['icon'] }} 5. Importazione Listone Quotazioni
+                    </span>
+                    <!-- Status Badge (Stile Pillola) -->
+                    <span style="font-size:0.75rem; font-weight:700; color: {{ $s5_badge_color === 'emerald' ? '#047857' : ($s5_badge_color === 'rose' ? '#b91c1c' : ($s5_badge_color === 'slate' ? '#475569' : '#b45309')) }}; background: {{ $s5_badge_color === 'emerald' ? '#ecfdf5' : ($s5_badge_color === 'rose' ? '#fef2f2' : ($s5_badge_color === 'slate' ? '#f1f5f9' : '#fffbeb')) }}; border:1px solid {{ $s5_badge_color === 'emerald' ? '#a7f3d0' : ($s5_badge_color === 'rose' ? '#fecaca' : ($s5_badge_color === 'slate' ? '#cbd5e1' : '#fde68a')) }}; padding:2px 10px; border-radius:12px; text-transform: uppercase;">
+                        {{ $s5_status_label }}
+                    </span>
                 </div>
+                <div style="display:flex; align-items:center; gap:12px;">
+                    <span style="font-size: 0.75rem; font-weight: 600; color: #64748b;">Dettagli</span>
+                    <span :style="open ? 'transform: rotate(180deg);' : 'transform: rotate(0deg);'" 
+                          style="display: inline-block; transition: transform 0.2s ease; font-size: 0.75rem; color: #64748b; font-weight: bold;">
+                        ▼
+                    </span>
+                </div>
+            </div>
+            
+            <!-- Accordion Content -->
+            <div x-show="open" 
+                 x-transition:enter="transition ease-out duration-200"
+                 x-transition:enter-start="opacity-0 transform scale-95"
+                 x-transition:enter-end="opacity-100 transform scale-100"
+                 style="display: none; padding: 16px; background-color: #ffffff; border-top: 1px solid #f1f5f9;">
+                
+                @if($s5_status === 'blocked')
+                    <div style="padding: 16px; background-color: #f8fafc; border-radius: 8px; text-align: center; color: #64748b; font-size: 14px;">
+                        Devi completare lo step precedente (4. Calcolo Tier Squadre) prima di sbloccare questo step.
+                    </div>
+                @else
+                    <!-- Colonne Cards -->
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 16px;">
+                        
+                        <!-- CARD 1: GIOCATORI A LISTONE -->
+                        <div x-tooltip="'Numero totale di calciatori riconosciuti e attivi nell\'attuale Listone ufficiale.'"
+                             style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px; display: flex; flex-direction: column; justify-content: space-between; min-height: 150px; text-align: left; cursor: help;">
+                            <div>
+                                <p style="font-size: 10px; font-weight: 700; color: #94a3b8; text-transform: uppercase; margin: 0 0 8px 0; letter-spacing: 0.05em;">GIOCATORI A LISTONE</p>
+                                <div style="display: flex; align-items: center; gap: 8px; margin-top: 4px;">
+                                    @php $fantaPct = $playerFanta >= 400 ? 100 : round(($playerFanta / 400) * 100); @endphp
+                                    <p style="font-size: 24px; font-weight: 900; color: #1e293b; margin: 0;">{{ $playerFanta }}</p>
+                                    @if($playerFanta >= 400)
+                                        <svg style="width:20px; height:20px; color:#10b981;" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
+                                    @endif
+                                </div>
+                                <div style="margin-top: 8px; height: 8px; background-color: #e2e8f0; border-radius: 4px; overflow: hidden; border: 1px solid #e2e8f0;">
+                                    <div style="height: 100%; background: linear-gradient(to right, #3b82f6, #2563eb); width: {{ $fantaPct }}%; border-radius: 4px;"></div>
+                                </div>
+                            </div>
+                            <p style="font-size: 11px; color: #64748b; margin: 12px 0 0 0; line-height: 1.4;">
+                                Target minimo: 400 giocatori per considerare il roster sufficientemente coperto per l'analisi.
+                            </p>
+                        </div>
+
+                        <!-- CARD 2: ORFANI -->
+                        <div x-tooltip="'Giocatori presenti a Listone ma con associazione squadra fallita (es. team non in Serie A, svincolati o mismatch nome squadra).'"
+                             style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px; display: flex; flex-direction: column; justify-content: space-between; min-height: 150px; text-align: left; cursor: help;">
+                            <div>
+                                <p style="font-size: 10px; font-weight: 700; color: #94a3b8; text-transform: uppercase; margin: 0 0 8px 0; letter-spacing: 0.05em;">ORFANI (SENZA SQUADRA)</p>
+                                <div style="display: flex; align-items: center; gap: 8px; margin-top: 4px;">
+                                    <p style="font-size: 24px; font-weight: 900; color: {{ $playerOrphan > 0 ? '#ef4444' : '#10b981' }}; margin: 0;">{{ $playerOrphan }}</p>
+                                </div>
+                                <div style="margin-top: 8px; height: 8px; background-color: #e2e8f0; border-radius: 4px; overflow: hidden; border: 1px solid #e2e8f0;">
+                                    <div style="height: 100%; background: {{ $playerOrphan > 0 ? 'linear-gradient(to right, #ef4444, #b91c1c)' : '#10b981' }}; width: 100%; border-radius: 4px;"></div>
+                                </div>
+                            </div>
+                            <p style="font-size: 11px; color: #64748b; margin: 12px 0 0 0; line-height: 1.4;">
+                                Se il numero è alto, verifica che i nomi delle squadre nel Listone coincidano con quelli censiti a database.
+                            </p>
+                        </div>
+
+                        <!-- CARD 3: ULTIMO IMPORT -->
+                        <div x-tooltip="'Data e ora dell\'ultimo caricamento andato a buon fine del file Excel Listone.'"
+                             style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px; display: flex; flex-direction: column; justify-content: space-between; min-height: 150px; text-align: left; cursor: help;">
+                            <div>
+                                <p style="font-size: 10px; font-weight: 700; color: #94a3b8; text-transform: uppercase; margin: 0 0 8px 0; letter-spacing: 0.05em;">ULTIMO CARICAMENTO EXCEL</p>
+                                <div style="display: flex; align-items: center; gap: 8px; margin-top: 4px;">
+                                    <p style="font-size: 20px; font-weight: 900; color: #1e293b; margin: 0;">
+                                        {{ $lastListone ? \Carbon\Carbon::parse($lastListone->created_at)->format('d/m/Y H:i') : 'Mai effettuato' }}
+                                    </p>
+                                </div>
+                            </div>
+                            <p style="font-size: 11px; color: #64748b; margin: 12px 0 0 0; line-height: 1.4;">
+                                Sorgente ufficiale per i calcoli finanziari e ruoli Classic/Mantra (FVM, Quotazioni).
+                            </p>
+                        </div>
+
+                    </div>
+
+                    <!-- Call to Action -->
+                    <div style="display: flex; justify-content: flex-end; margin-top: 16px; padding-top: 16px; border-top: 1px solid #f1f5f9;">
+                        <a href="{{ route('filament.admin.pages.importa-listone') }}" 
+                           style="display: inline-flex; align-items: center; justify-content: center; padding: 8px 16px; background-color: #3b82f6; color: #ffffff; font-size: 12px; font-weight: 700; border-radius: 6px; text-decoration: none; box-shadow: 0 2px 4px rgba(59, 130, 246, 0.2); transition: background-color 0.2s;"
+                           onmouseover="this.style.backgroundColor='#2563eb'"
+                           onmouseout="this.style.backgroundColor='#3b82f6'">
+                            Gestisci Listone →
+                        </a>
+                    </div>
+                @endif
             </div>
         </div>
 
