@@ -100,6 +100,22 @@ class Dashboard extends BaseDashboard
         $playerApi   = Player::whereNotNull('api_football_data_id')->count();
         $playerOrphan = Player::whereNull('parent_team_id')->count();
 
+        $expectedSeasons = \App\Helpers\SeasonHelper::getLookbackSeasons();
+        $listoneCoverage = [];
+        $missingListoneSeasons = 0;
+        foreach ($expectedSeasons as $year => $label) {
+            $seasonId = \App\Models\Season::where('season_year', $year)->value('id');
+            $count = $seasonId ? \App\Models\PlayerSeasonRoster::where('season_id', $seasonId)->count() : 0;
+            $listoneCoverage[$year] = [
+                'label' => $label,
+                'count' => $count,
+                'ok' => $count >= 400
+            ];
+            if ($count < 400) {
+                $missingListoneSeasons++;
+            }
+        }
+
         $lastListone = ImportLog::where('import_type', 'roster_quotazioni')
             ->where('status', 'successo')
             ->latest()->first();
@@ -115,7 +131,7 @@ class Dashboard extends BaseDashboard
         $step2Ok = $teamTotal >= 20 && $apiMissingCount === 0;
         $step3Ok = $standingCount >= $standingTarget;
         $step4Ok = $teamWithTier >= 20;
-        $step5Ok = $playerFanta >= 400;
+        $step5Ok = $missingListoneSeasons === 0;
 
         return compact(
             'seasonStatus', 'seasonStatusLabel', 'proxyStatus',
@@ -125,7 +141,7 @@ class Dashboard extends BaseDashboard
             'standingCount', 'standingTarget', 'perfectTeams', 's3LastUpdate',
             'teamWithTier', 'tierDist',
             'playerTotal', 'playerFanta', 'playerApi', 'playerOrphan',
-            'lastListone', 'lastSync', 'pct',
+            'lastListone', 'lastSync', 'pct', 'listoneCoverage', 'missingListoneSeasons',
             'step1Ok', 'step2Ok', 'step3Ok', 'step4Ok', 'step5Ok'
         );
     }

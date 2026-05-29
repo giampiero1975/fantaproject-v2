@@ -491,24 +491,34 @@
                     <!-- Colonne Cards -->
                     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 16px;">
                         
-                        <!-- CARD 1: GIOCATORI A LISTONE -->
-                        <div x-tooltip="'Numero totale di calciatori riconosciuti e attivi nell\'attuale Listone ufficiale.'"
+                        <!-- CARD 1: COPERTURA STAGIONI -->
+                        <div x-tooltip="'Verifica della presenza del listone per la stagione corrente e le annate storiche necessarie ai calcoli.'"
                              style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px; display: flex; flex-direction: column; justify-content: space-between; min-height: 150px; text-align: left; cursor: help;">
                             <div>
-                                <p style="font-size: 10px; font-weight: 700; color: #94a3b8; text-transform: uppercase; margin: 0 0 8px 0; letter-spacing: 0.05em;">GIOCATORI A LISTONE</p>
-                                <div style="display: flex; align-items: center; gap: 8px; margin-top: 4px;">
-                                    @php $fantaPct = $playerFanta >= 400 ? 100 : round(($playerFanta / 400) * 100); @endphp
-                                    <p style="font-size: 24px; font-weight: 900; color: #1e293b; margin: 0;">{{ $playerFanta }}</p>
-                                    @if($playerFanta >= 400)
-                                        <svg style="width:20px; height:20px; color:#10b981;" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
-                                    @endif
-                                </div>
-                                <div style="margin-top: 8px; height: 8px; background-color: #e2e8f0; border-radius: 4px; overflow: hidden; border: 1px solid #e2e8f0;">
-                                    <div style="height: 100%; background: linear-gradient(to right, #3b82f6, #2563eb); width: {{ $fantaPct }}%; border-radius: 4px;"></div>
+                                <p style="font-size: 10px; font-weight: 700; color: #94a3b8; text-transform: uppercase; margin: 0 0 8px 0; letter-spacing: 0.05em;">COPERTURA STAGIONI</p>
+                                <div style="display: flex; flex-direction: column; gap: 4px; margin-top: 8px;">
+                                    @foreach($listoneCoverage ?? [] as $year => $data)
+                                        <div style="display: flex; justify-content: space-between; align-items: center; font-size: 12px;">
+                                            <span style="color: #475569; font-weight: 500;">{{ $data['label'] }}</span>
+                                            @if($data['ok'])
+                                                <span style="color: #10b981; font-weight: 700; display: flex; align-items: center; gap: 4px;">
+                                                    {{ $data['count'] }} <svg style="width:14px; height:14px;" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
+                                                </span>
+                                            @else
+                                                <span style="color: #ef4444; font-weight: 700; display: flex; align-items: center; gap: 4px;">
+                                                    Mancante <svg style="width:14px; height:14px;" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                                                </span>
+                                            @endif
+                                        </div>
+                                    @endforeach
                                 </div>
                             </div>
-                            <p style="font-size: 11px; color: #64748b; margin: 12px 0 0 0; line-height: 1.4;">
-                                Target minimo: 400 giocatori per considerare il roster sufficientemente coperto per l'analisi.
+                            <p style="font-size: 11px; color: {{ ($missingListoneSeasons ?? 0) > 0 ? '#ef4444' : '#64748b' }}; margin: 12px 0 0 0; line-height: 1.4; font-weight: {{ ($missingListoneSeasons ?? 0) > 0 ? '600' : 'normal' }};">
+                                @if(($missingListoneSeasons ?? 0) > 0)
+                                    Mancano {{ $missingListoneSeasons }} stagioni all'appello.
+                                @else
+                                    Tutte le stagioni necessarie sono state caricate.
+                                @endif
                             </p>
                         </div>
 
