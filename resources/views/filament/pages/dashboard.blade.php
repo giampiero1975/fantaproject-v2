@@ -286,26 +286,105 @@
         {{-- STEP 4 — Calcolo Tier Squadre                                    --}}
         {{-- ══════════════════════════════════════════════════════════════════ --}}
         @php $th = \App\Helpers\StepHelper::stepTheme($s4_status) @endphp
-        <div style="width:100%; border-radius:8px; border:1px solid #e5e7eb; overflow:hidden; box-shadow:0 1px 3px rgba(0,0,0,.07); {{ $th['border_style'] }}">
-            <div style="display:flex; align-items:center; justify-content:space-between; padding:10px 16px; {{ $th['header_style'] }}">
+        <div x-data="{ open: false }" style="width:100%; border-radius:8px; border:1px solid #e5e7eb; overflow:hidden; box-shadow:0 1px 3px rgba(0,0,0,.07); {{ $th['border_style'] }}">
+            <div @click="open = !open" style="cursor:pointer; display:flex; align-items:center; justify-content:space-between; padding:10px 16px; {{ $th['header_style'] }}">
                 <span style="font-weight:700; color:#1f2937; font-size:0.875rem;">
                     {{ $th['icon'] }} 4. Calcolo Tier Squadre
                 </span>
-                <span style="{{ $th['badge_style'] }}">{{ $th['badge_label'] }}</span>
-            </div>
-            @if($s4_status !== 'blocked')
-                <div class="px-4 py-3 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm bg-white dark:bg-gray-900">
-                    <div>
-                        <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">Dati</p>
-                        <p class="text-gray-700 dark:text-gray-200">
-                            Tier calcolati:
-                            <strong style="{{ $teamWithTier >= 20 ? 'color:#198754' : 'color:#dc2626' }}">
-                                {{ $teamWithTier }} / 20
-                            </strong>
-                        </p>
-                    </div>
+                <div style="display:flex; align-items:center; gap:12px;">
+                    <span style="{{ $th['badge_style'] }}">{{ $th['badge_label'] }}</span>
+                    <svg x-bind:style="open ? 'transform: rotate(180deg);' : ''" style="transition: transform 0.2s; width:20px; height:20px; color:#6b7280;" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                    </svg>
                 </div>
-            @endif
+            </div>
+            
+            <div x-show="open" x-collapse>
+                @if($s4_status === 'blocked')
+                    <div style="padding:16px; font-size:0.875rem; color:#6b7280; background-color:#f9fafb;">
+                        Devi completare lo step precedente (3. Storico Classifiche) prima di sbloccare questo step.
+                    </div>
+                @else
+                    <div style="padding: 16px; background-color: #ffffff; border-top: 1px solid #f1f5f9;">
+                        <!-- Colonne Cards -->
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 16px;">
+                            
+                            <!-- CARD 1: TIER ASSEGNATI -->
+                            <div x-tooltip="'Indica il numero di squadre attive a cui il motore ha assegnato correttamente un Tier 1-5.'"
+                                 style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px; display: flex; flex-direction: column; justify-content: space-between; min-height: 150px; text-align: left; cursor: help;">
+                                <div>
+                                    <p style="font-size: 10px; font-weight: 700; color: #94a3b8; text-transform: uppercase; margin: 0 0 8px 0; letter-spacing: 0.05em;">TIER ASSEGNATI</p>
+                                    <div style="display: flex; align-items: center; gap: 8px; margin-top: 4px;">
+                                        @php 
+                                            $activeCount = $teamTotal > 0 ? $teamTotal : 20;
+                                            $tierPct = $activeCount > 0 ? min(100, round(($teamWithTier / $activeCount) * 100)) : 0; 
+                                        @endphp
+                                        <p style="font-size: 24px; font-weight: 900; color: #1e293b; margin: 0;">{{ $teamWithTier }} / {{ $activeCount }}</p>
+                                    </div>
+                                    <div style="margin-top: 8px; height: 8px; background-color: #e2e8f0; border-radius: 4px; overflow: hidden; border: 1px solid #e2e8f0;">
+                                        <div style="height: 100%; background: linear-gradient(to right, #6366f1, #4f46e5); width: {{ $tierPct }}%; border-radius: 4px;"></div>
+                                    </div>
+                                </div>
+                                <p style="font-size: 11px; color: #64748b; margin: 12px 0 0 0; line-height: 1.4;">
+                                    Tutte le squadre devono avere un Tier assegnato prima di poter estrarre proiezioni.
+                                </p>
+                            </div>
+
+                            <!-- CARD 2: BILANCIAMENTO LEGA -->
+                            <div x-tooltip="'Suddivisione della lega per macro-aree: Top (Tier 1-2), Mid (Tier 3), Flop (Tier 4-5).'"
+                                 style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px; display: flex; flex-direction: column; justify-content: space-between; min-height: 150px; text-align: left; cursor: help;">
+                                <div>
+                                    <p style="font-size: 10px; font-weight: 700; color: #94a3b8; text-transform: uppercase; margin: 0 0 8px 0; letter-spacing: 0.05em;">BILANCIAMENTO LEGA</p>
+                                    @php
+                                        $topCount = ($tierDist[1] ?? 0) + ($tierDist[2] ?? 0);
+                                        $midCount = ($tierDist[3] ?? 0);
+                                        $flopCount = ($tierDist[4] ?? 0) + ($tierDist[5] ?? 0);
+                                    @endphp
+                                    <div style="display: flex; gap: 4px; margin-top: 8px;">
+                                        <div style="flex: {{ $topCount > 0 ? $topCount : 1 }}; background-color: #3b82f6; height: 6px; border-radius: 3px;"></div>
+                                        <div style="flex: {{ $midCount > 0 ? $midCount : 1 }}; background-color: #94a3b8; height: 6px; border-radius: 3px;"></div>
+                                        <div style="flex: {{ $flopCount > 0 ? $flopCount : 1 }}; background-color: #f97316; height: 6px; border-radius: 3px;"></div>
+                                    </div>
+                                    <div style="display: flex; justify-content: space-between; margin-top: 8px; font-size: 12px; font-weight: 700;">
+                                        <span style="color: #3b82f6;">{{ $topCount }} Top</span>
+                                        <span style="color: #94a3b8;">{{ $midCount }} Mid</span>
+                                        <span style="color: #f97316;">{{ $flopCount }} Flop</span>
+                                    </div>
+                                </div>
+                                <p style="font-size: 11px; color: #64748b; margin: 12px 0 0 0; line-height: 1.4;">
+                                    Ripartizione competitiva del campionato attuale in base alla forza delle squadre.
+                                </p>
+                            </div>
+
+                            <!-- CARD 3: SQUADRE D'ELITE -->
+                            <div x-tooltip="'Numero di squadre assegnate in assoluto alla fascia più alta di punteggio (Tier 1).'"
+                                 style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px; display: flex; flex-direction: column; justify-content: space-between; min-height: 150px; text-align: left; cursor: help;">
+                                <div>
+                                    <p style="font-size: 10px; font-weight: 700; color: #94a3b8; text-transform: uppercase; margin: 0 0 8px 0; letter-spacing: 0.05em;">SQUADRE D'ELITE</p>
+                                    <div style="display: flex; align-items: center; gap: 8px; margin-top: 4px;">
+                                        <p style="font-size: 24px; font-weight: 900; color: #eab308; margin: 0;">{{ $tierDist[1] ?? 0 }}</p>
+                                        <svg style="width:24px; height:24px; color:#eab308;" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"></path></svg>
+                                    </div>
+                                </div>
+                                <p style="font-size: 11px; color: #64748b; margin: 12px 0 0 0; line-height: 1.4;">
+                                    I top club schiacciasassi. I loro giocatori riceveranno i bonus moltiplicatori massimi nelle proiezioni.
+                                </p>
+                            </div>
+
+                        </div>
+
+                        <!-- Call to Action -->
+                        <div style="display: flex; justify-content: flex-end; margin-top: 16px; padding-top: 16px; border-top: 1px solid #f1f5f9;">
+                            <a href="{{ \App\Filament\Pages\TierSquadre::getUrl() }}" 
+                               style="display: inline-flex; align-items: center; justify-content: center; padding: 8px 16px; background-color: #3b82f6; color: #ffffff; font-size: 12px; font-weight: 700; border-radius: 6px; text-decoration: none; box-shadow: 0 2px 4px rgba(59, 130, 246, 0.2); transition: background-color 0.2s;"
+                               onmouseover="this.style.backgroundColor='#2563eb'"
+                               onmouseout="this.style.backgroundColor='#3b82f6'">
+                                Dashboard Tier Squadre →
+                            </a>
+                        </div>
+                    </div>
+                @endif
+            </div>
         </div>
 
         {{-- ══════════════════════════════════════════════════════════════════ --}}
