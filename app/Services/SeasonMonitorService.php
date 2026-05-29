@@ -60,7 +60,7 @@ class SeasonMonitorService
                     'status' => self::STATUS_IDLE_OFF_SEASON,
                     'label' => 'PAUSA ESTIVA',
                     'description' => "Campionato terminato il {$endDate->format('d/m/Y')}. Il sistema è in letargo di default (Nessuna chiamata automatica).",
-                    'color' => 'gray',
+                    'color' => 'warning',
                     'icon' => 'heroicon-o-moon',
                 ];
             }

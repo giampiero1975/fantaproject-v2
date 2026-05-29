@@ -35,41 +35,6 @@
             $s7_status = !$s6_ok ? 'blocked' : ($s7_ok ? 'ok' : ($pct > 0 ? 'partial' : 'missing'));
 
             $tierSummary = collect($tierDist)->map(fn($c,$t) => "T{$t}: {$c}")->implode(' · ');
-
-            if (!function_exists('stepTheme')) {
-                function stepTheme(string $status): array {
-                    return match($status) {
-                        'ok'      => [
-                            'icon'          => '✅',
-                            'border_style'  => 'border-left: 4px solid #198754;',
-                            'header_style'  => 'background-color: #f0fdf4; border-bottom: 1px solid #bbf7d0;',
-                            'badge_style'   => 'background-color: #198754; color: #fff; font-weight: 700; font-size: 0.72rem; padding: 2px 10px; border-radius: 4px; white-space: nowrap;',
-                            'badge_label'   => 'Dati Presenti',
-                        ],
-                        'partial' => [
-                            'icon'          => '⚠️',
-                            'border_style'  => 'border-left: 4px solid #f59e0b;',
-                            'header_style'  => 'background-color: #fffbeb; border-bottom: 1px solid #fde68a;',
-                            'badge_style'   => 'background-color: #d97706; color: #fff; font-weight: 700; font-size: 0.72rem; padding: 2px 10px; border-radius: 4px; white-space: nowrap;',
-                            'badge_label'   => 'Parziale',
-                        ],
-                        'missing' => [
-                            'icon'          => '❌',
-                            'border_style'  => 'border-left: 4px solid #dc2626;',
-                            'header_style'  => 'background-color: #fef2f2; border-bottom: 1px solid #fecaca;',
-                            'badge_style'   => 'background-color: #dc2626; color: #fff; font-weight: 700; font-size: 0.72rem; padding: 2px 10px; border-radius: 4px; white-space: nowrap;',
-                            'badge_label'   => 'Mancante',
-                        ],
-                        default   => [ // blocked
-                            'icon'          => '⏳',
-                            'border_style'  => 'border-left: 4px solid #9ca3af;',
-                            'header_style'  => 'background-color: #f9fafb; border-bottom: 1px solid #e5e7eb;',
-                            'badge_style'   => 'background-color: #6b7280; color: #fff; font-weight: 700; font-size: 0.72rem; padding: 2px 10px; border-radius: 4px; white-space: nowrap;',
-                            'badge_label'   => 'In attesa',
-                        ],
-                    };
-                }
-            }
         @endphp
 
 
@@ -82,7 +47,7 @@
         {{-- STEP 2 — Squadre (Anagrafica & API)                               --}}
         {{-- ══════════════════════════════════════════════════════════════════ --}}
         @php 
-            $th = stepTheme($s2_status);
+            $th = \App\Helpers\StepHelper::stepTheme($s2_status);
             $s2_status_label = 'VUOTO';
             $s2_badge_color = 'rose';
             if ($s2_status === 'ok') {
@@ -191,18 +156,12 @@
         {{-- ══════════════════════════════════════════════════════════════════ --}}
         {{-- STEP 3 — Storico Classifiche                                     --}}
         {{-- ══════════════════════════════════════════════════════════════════ --}}
-        @php $th = stepTheme($s3_status) @endphp
+        @php $th = \App\Helpers\StepHelper::stepTheme($s3_status) @endphp
         <div style="width:100%; border-radius:8px; border:1px solid #e5e7eb; overflow:hidden; box-shadow:0 1px 3px rgba(0,0,0,.07); {{ $th['border_style'] }}">
             <div style="display:flex; align-items:center; justify-content:space-between; padding:10px 16px; {{ $th['header_style'] }}">
                 <span style="font-weight:700; color:#1f2937; font-size:0.875rem;">
                     {{ $th['icon'] }} 3. Storico Classifiche
                 </span>
-                @if($s3_status !== 'blocked' && $standingCount < $standingTarget)
-                    <button wire:click="triggerHistoryScraping" wire:loading.attr="disabled" class="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs font-bold transition-all shadow-sm flex items-center gap-2">
-                        <x-heroicon-o-arrow-path wire:loading.class="animate-spin" class="w-3.5 h-3.5" />
-                        Aggiorna Storico
-                    </button>
-                @endif
                 <span style="{{ $th['badge_style'] }}">{{ $th['badge_label'] }}</span>
             </div>
             @if($s3_status !== 'blocked')
@@ -223,7 +182,7 @@
         {{-- ══════════════════════════════════════════════════════════════════ --}}
         {{-- STEP 4 — Calcolo Tier Squadre                                    --}}
         {{-- ══════════════════════════════════════════════════════════════════ --}}
-        @php $th = stepTheme($s4_status) @endphp
+        @php $th = \App\Helpers\StepHelper::stepTheme($s4_status) @endphp
         <div style="width:100%; border-radius:8px; border:1px solid #e5e7eb; overflow:hidden; box-shadow:0 1px 3px rgba(0,0,0,.07); {{ $th['border_style'] }}">
             <div style="display:flex; align-items:center; justify-content:space-between; padding:10px 16px; {{ $th['header_style'] }}">
                 <span style="font-weight:700; color:#1f2937; font-size:0.875rem;">
@@ -249,7 +208,7 @@
         {{-- ══════════════════════════════════════════════════════════════════ --}}
         {{-- STEP 5 — Importazione Listone Quotazioni                         --}}
         {{-- ══════════════════════════════════════════════════════════════════ --}}
-        @php $th = stepTheme($s5_status) @endphp
+        @php $th = \App\Helpers\StepHelper::stepTheme($s5_status) @endphp
         <div style="width:100%; border-radius:8px; border:1px solid #e5e7eb; overflow:hidden; box-shadow:0 1px 3px rgba(0,0,0,.07); {{ $th['border_style'] }}">
             <div style="display:flex; align-items:center; justify-content:space-between; padding:10px 16px; {{ $th['header_style'] }}">
                 <span style="font-weight:700; color:#1f2937; font-size:0.875rem;">
@@ -265,7 +224,7 @@
         {{-- ══════════════════════════════════════════════════════════════════ --}}
         {{-- STEP 6 — Calciatori                                              --}}
         {{-- ══════════════════════════════════════════════════════════════════ --}}
-        @php $th = stepTheme($s6_status) @endphp
+        @php $th = \App\Helpers\StepHelper::stepTheme($s6_status) @endphp
         <div style="width:100%; border-radius:8px; border:1px solid #e5e7eb; overflow:hidden; box-shadow:0 1px 3px rgba(0,0,0,.07); {{ $th['border_style'] }}">
             <div style="display:flex; align-items:center; justify-content:space-between; padding:10px 16px; {{ $th['header_style'] }}">
                 <span style="font-weight:700; color:#1f2937; font-size:0.875rem;">
@@ -291,7 +250,7 @@
         {{-- ══════════════════════════════════════════════════════════════════ --}}
         {{-- STEP 7 — Sync API-Football                                       --}}
         {{-- ══════════════════════════════════════════════════════════════════ --}}
-        @php $th = stepTheme($s7_status) @endphp
+        @php $th = \App\Helpers\StepHelper::stepTheme($s7_status) @endphp
         <div style="width:100%; border-radius:8px; border:1px solid #e5e7eb; overflow:hidden; box-shadow:0 1px 3px rgba(0,0,0,.07); {{ $th['border_style'] }}">
             <div style="display:flex; align-items:center; justify-content:space-between; padding:10px 16px; {{ $th['header_style'] }}">
                 <span style="font-weight:700; color:#1f2937; font-size:0.875rem;">

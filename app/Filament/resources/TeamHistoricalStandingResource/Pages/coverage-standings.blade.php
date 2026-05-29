@@ -1,4 +1,18 @@
 <x-filament-panels::page>
+    <div class="mb-6 flex items-center justify-between">
+        <div class="w-1/3">
+            <label for="leagueFilter" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Filtra per Lega Attuale
+            </label>
+            <select wire:model.live="leagueFilter" id="leagueFilter" class="block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 sm:text-sm dark:bg-gray-800 dark:border-white/10 dark:text-white">
+                <option value="">Tutte le Squadre</option>
+                @foreach(\App\Models\League::pluck('name', 'name') as $value => $label)
+                    <option value="{{ $value }}">{{ $label }}</option>
+                @endforeach
+            </select>
+        </div>
+    </div>
+
     <div class="bg-white border border-gray-200 shadow-sm dark:bg-gray-900 dark:border-white/10 rounded-xl overflow-hidden">
         <table class="w-full text-left border-collapse">
             <thead>

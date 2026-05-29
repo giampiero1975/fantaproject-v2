@@ -6,10 +6,8 @@ use App\Filament\Resources\TeamHistoricalStandingResource;
 use App\Services\TeamDataService;
 use Filament\Resources\Pages\Page;
 use Filament\Actions\Action;
-use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Select;
 use Filament\Notifications\Notification;
-use Illuminate\Support\Facades\Log;
 
 class CoverageStandings extends Page
 {
@@ -55,16 +53,14 @@ class CoverageStandings extends Page
                         throw new \Exception("Lega non configurata correttamente.");
                     }
 
-                    // Usiamo la capitalizzazione esatta sostituendo gli spazi con trattini (FBref è case-sensitive)
                     $slug = str_replace(' ', '-', $league->name);
-                    
-                    // Composizione automatica dell'URL di FBref
+                    $nextYear = $year + 1;
                     $url = "https://fbref.com/en/comps/{$league->fbref_id}/{$year}-{$nextYear}/{$year}-{$nextYear}-{$slug}-Stats";
                     
                     $service->scrapeFromFbrefUrl($url, $year, $league->name);
                     
                     Notification::make()->title("Sincronizzazione {$league->name} {$year}/{$nextYear} completata!")->success()->send();
-                    $this->mount($service); // Ricarica la matrice
+                    $this->mount($service);
                     
                 } catch (\Exception $e) {
                     Notification::make()->title('Errore')->body($e->getMessage())->danger()->send();

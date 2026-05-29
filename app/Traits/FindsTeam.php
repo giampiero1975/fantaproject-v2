@@ -193,16 +193,29 @@
          $team = Team::whereNull('api_id')->where('name', 'LIKE', '%' . $trimmedName . '%')->first();
          if ($team) return $team->id;
 
-         // T4: Similarità reciproca (es. se "Venezia" è contenuto in "Venezia FC", o viceversa)
+         // T4: Similarità con similar_text() — cattura varianti tipo "Hellas Verona" vs "Hellas Verona FC"
          $orphans = Team::whereNull('api_id')->get();
+         $bestId   = null;
+         $bestPct  = 0.0;
+
          foreach ($orphans as $orphan) {
-             $orphanName = strtolower($orphan->name);
+             $orphanName  = strtolower($orphan->name);
              $orphanShort = strtolower($orphan->short_name ?? '');
-             
-             if (str_contains($lowerName, $orphanName) || str_contains($orphanName, $lowerName) ||
-                 ($orphanShort && (str_contains($lowerName, $orphanShort) || str_contains($orphanShort, $lowerName)))) {
-                 return $orphan->id;
+
+             similar_text($lowerName, $orphanName, $pctName);
+             similar_text($lowerName, $orphanShort, $pctShort);
+             $pct = max($pctName, $pctShort);
+
+             if ($pct > $bestPct) {
+                 $bestPct = $pct;
+                 $bestId  = $orphan->id;
              }
+         }
+
+         // Soglia 80%: abbastanza alta da evitare falsi positivi, abbastanza bassa da coprire varianti
+         if ($bestPct >= 80.0) {
+             Log::info("[findOrphanIdByName] T4 Similarity match: '{$name}' → ID {$bestId} ({$bestPct}%)");
+             return $bestId;
          }
 
          return null;

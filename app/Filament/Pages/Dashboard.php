@@ -58,9 +58,16 @@ class Dashboard extends BaseDashboard
         }
 
         // ── Dati Storico ────────────────────────────────────────────────────
-        $standingCount = DB::table('team_season')->whereNotNull('posizione_finale')->count();
-        $targetCount   = Season::count(); 
-        $standingTarget = $targetCount * 20;
+        // Calcoliamo le stagioni incluse nel lookback (es. ultimi 4 anni)
+        $lookbackYears = collect($lookbackStatus['years'] ?? [])
+            ->pluck('year')
+            ->toArray();
+        // Conta i record presenti nella tabella team_historical_standings per le stagioni di lookback
+        $standingCount = DB::table('team_historical_standings')
+            ->whereIn('season_year', $lookbackYears)
+            ->count();
+        // Il target è il numero di squadre per stagione moltiplicato per il numero di stagioni di lookback
+        $standingTarget = count($lookbackYears) * 20;
 
         // ── Dati Tier ───────────────────────────────────────────────────────
         $teamWithTier = Team::whereNotNull('tier_globale')->count();
@@ -104,26 +111,6 @@ class Dashboard extends BaseDashboard
         );
     }
 
-    public function triggerHistoryScraping()
-    {
-        try {
-            \Illuminate\Support\Facades\Artisan::call('football:scrape-history');
-            
-            Notification::make()
-                ->title('Scraping Avviato')
-                ->body('Il recupero dello storico è in corso in background.')
-                ->info()
-                ->send();
-                
-            return redirect(\App\Filament\Pages\Dashboard::getUrl());
-        } catch (\Exception $e) {
-            Notification::make()
-                ->title('Errore Tecnico')
-                ->body($e->getMessage())
-                ->danger()
-                ->send();
-        }
-    }
 
     public function triggerSeasonSync()
     {

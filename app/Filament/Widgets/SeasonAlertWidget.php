@@ -70,6 +70,9 @@ class SeasonAlertWidget extends Widget {
             $status_color = 'amber';
         }
 
+        // 5. RECUPERO STATO STAGIONE (es. PAUSA ESTIVA, IN CORSO)
+        $monitorStatus = app(\App\Services\SeasonMonitorService::class)->getStatus();
+
         return [
             'progress' => $progressRound,
             'total' => $total,
@@ -79,6 +82,8 @@ class SeasonAlertWidget extends Widget {
             'status' => $status_label,
             'color' => $status_color,
             'header_color' => $header_color,
+            'season_state_label' => $monitorStatus['label'] ?? 'SCONOSCIUTO',
+            'season_state_color' => $monitorStatus['color'] ?? 'gray',
         ];
     }
 }

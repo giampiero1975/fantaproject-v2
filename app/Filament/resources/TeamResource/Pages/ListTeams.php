@@ -6,8 +6,6 @@ use App\Filament\Resources\TeamResource;
 use App\Filament\Resources\TeamResource\Widgets\TeamGuideWidget;
 use App\Models\Season;
 use App\Models\League;
-use App\Services\TeamDataService;
-use App\Services\LeagueHistoryScraperService;
 use Filament\Actions;
 use Filament\Resources\Pages\ListRecords;
 use Filament\Notifications\Notification;
@@ -32,8 +30,8 @@ class ListTeams extends ListRecords
                 ->label('Sincronizza Squadre')
                 ->icon('heroicon-o-arrow-path')
                 ->color('success')
-                ->modalHeading('Configurazione Sincronizzazione Squadre')
-                ->modalDescription('Seleziona la stagione (già creata in Gestione Stagione) e la sorgente dei dati.')
+                ->modalHeading('Sincronizzazione Squadre (API Ufficiale)')
+                ->modalDescription('Scarica le squadre della stagione selezionata usando Football-Data.org.')
                 ->form([
                     Forms\Components\Select::make('season_year')
                         ->label('Stagione')
@@ -48,19 +46,9 @@ class ListTeams extends ListRecords
                         ->placeholder('Seleziona una stagione da scaricare...')
                         ->required()
                         ->hint('Vengono mostrate solo le stagioni senza squadre censite.'),
-                    
-                    Forms\Components\Radio::make('source')
-                        ->label('Sorgente Dati')
-                        ->options([
-                            'api' => 'API Ufficiale (Football-Data.org)',
-                            'fbref' => 'FBref Scraper (Dati Storici / Tier)',
-                        ])
-                        ->default('api')
-                        ->required(),
                 ])
                 ->action(function (array $data) {
                     $year = (int) $data['season_year'];
-                    $source = $data['source'];
 
                     // Assicuriamoci che la Lega Serie A (api_id 2019) esista con codice 'ITA'
                     League::firstOrCreate(
@@ -69,32 +57,21 @@ class ListTeams extends ListRecords
                     );
 
                     try {
-                        if ($source === 'api') {
-                            // Sync via Official API Artisan Command
-                            $exitCode = Artisan::call('football:sync-serie-a', ['season_year' => $year]);
-                            
-                            if ($exitCode !== 0) {
-                                Notification::make()
-                                    ->title('Errore sincronizzazione API!')
-                                    ->body("L'API ufficiale ha risposto con un errore (probabilmente stagione non inclusa nel piano).")
-                                    ->danger()
-                                    ->send();
-                                return;
-                            }
-                            
-                            $sourceLabel = 'API Ufficiale';
-                        } else {
-                            // Sync via FBref Scraper
-                            $result = app(LeagueHistoryScraperService::class)->scrapeSeason($year);
-                            if ($result['status'] === 'error') {
-                                throw new \Exception($result['message']);
-                            }
-                            $sourceLabel = "FBref Scraper";
+                        // Sync via Official API Artisan Command
+                        $exitCode = Artisan::call('football:sync-serie-a', ['season_year' => $year]);
+                        
+                        if ($exitCode !== 0) {
+                            Notification::make()
+                                ->title('Errore sincronizzazione API!')
+                                ->body("L'API ufficiale ha risposto con un errore (probabilmente stagione non inclusa nel piano).")
+                                ->danger()
+                                ->send();
+                            return;
                         }
 
                         Notification::make()
                             ->title('Sincronizzazione completata!')
-                            ->body("Dati per la stagione " . \App\Helpers\SeasonHelper::formatYear($year) . " aggiornati con successo via {$sourceLabel}.")
+                            ->body("Dati per la stagione " . \App\Helpers\SeasonHelper::formatYear($year) . " aggiornati con successo via API Ufficiale.")
                             ->success()
                             ->send();
 

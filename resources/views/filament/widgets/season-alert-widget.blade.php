@@ -11,7 +11,18 @@
                     📅 1. Gestione Stagioni
                 </span>
                 <div style="display:flex; gap:8px; align-items:center;">
-                    <!-- Status Badge -->
+                    <!-- Status Badge (Season State) -->
+                    @php
+                        $scColor = $this->metrics['season_state_color'] ?? 'gray';
+                        $scHex   = $scColor === 'success' ? '#047857' : ($scColor === 'warning' ? '#b45309' : ($scColor === 'danger' ? '#b91c1c' : '#475569'));
+                        $scBg    = $scColor === 'success' ? '#ecfdf5' : ($scColor === 'warning' ? '#fffbeb' : ($scColor === 'danger' ? '#fef2f2' : '#f8fafc'));
+                        $scBord  = $scColor === 'success' ? '#a7f3d0' : ($scColor === 'warning' ? '#fde68a' : ($scColor === 'danger' ? '#fecaca' : '#e2e8f0'));
+                    @endphp
+                    <span style="font-size:0.75rem; font-weight:700; color: {{ $scHex }}; background: {{ $scBg }}; border:1px solid {{ $scBord }}; padding:2px 10px; border-radius:12px; text-transform: uppercase;">
+                        {{ $this->metrics['season_state_label'] }}
+                    </span>
+
+                    <!-- Status Badge (System Health) -->
                     <span style="font-size:0.75rem; font-weight:700; color: {{ $this->metrics['color'] === 'emerald' ? '#047857' : ($this->metrics['color'] === 'rose' ? '#b91c1c' : '#b45309') }}; background: {{ $this->metrics['color'] === 'emerald' ? '#ecfdf5' : ($this->metrics['color'] === 'rose' ? '#fef2f2' : '#fffbeb') }}; border:1px solid {{ $this->metrics['color'] === 'emerald' ? '#a7f3d0' : ($this->metrics['color'] === 'rose' ? '#fecaca' : '#fde68a') }}; padding:2px 10px; border-radius:12px; text-transform: uppercase;">
                         {{ $this->metrics['status'] }}
                     </span>

@@ -144,7 +144,7 @@ class TeamDataService
             ]);
         }
     }
-    
+
     public function getCoverageData(array $seasons)
     {
         // Recuperiamo gli ID di tutte le squadre che hanno almeno un dato storico nei 4 anni target
@@ -157,6 +157,7 @@ class TeamDataService
             ->pluck('team_id')
             ->unique();
 
+        // Trova le squadre che sono in_serie_a corrente
         $activeTeamIds = \App\Models\Team::whereHas('teamSeasons', function($q) use ($currentSeasonId) {
             $q->where('season_id', $currentSeasonId)->where('is_active', true);
         })->pluck('id');
@@ -169,7 +170,9 @@ class TeamDataService
 
         $matrix = [];
         foreach ($teams as $team) {
-            $row = ['team_name' => $team->name];
+            $row = [
+                'team_name' => $team->name,
+            ];
             foreach ($seasons as $season) {
                 $row[$season] = DB::table('team_historical_standings')
                     ->where('team_id', $team->id)
@@ -178,6 +181,7 @@ class TeamDataService
             }
             $matrix[] = $row;
         }
+
         return $matrix;
     }
 

@@ -79,9 +79,14 @@
                     <p><strong>Stagione Attuale (ID):</strong> {{ $localSeasonState->id }}</p>
                     <p><strong>Inizio:</strong> {{ $localSeasonState->start_date ? $localSeasonState->start_date->format('d/m/Y') : 'N/A' }}</p>
                     <p><strong>Fine (end_date):</strong> {{ $localSeasonState->end_date ? $localSeasonState->end_date->format('d/m/Y') : 'N/A' }}</p>
-                    <p>
-                        <strong>Flag is_current:</strong> 
-                        <x-filament::badge color="success">TRUE</x-filament::badge>
+                    <p class="flex items-center gap-2">
+                        <strong>Stato:</strong> 
+                        @if ($localSeasonState->end_date && now()->isAfter($localSeasonState->end_date))
+                            <x-filament::badge color="warning">CONCLUSA</x-filament::badge>
+                        @else
+                            <x-filament::badge color="success">IN CORSO</x-filament::badge>
+                        @endif
+                        <span class="text-xs text-gray-400 ml-2">(is_current: {{ $localSeasonState->is_current ? 'true' : 'false' }})</span>
                     </p>
                 </div>
             @else

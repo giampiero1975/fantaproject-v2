@@ -95,7 +95,10 @@ class ManageSeason extends Page implements HasTable
                     ->getStateUsing(fn (Season $record) => $record->season_year >= 2023 ? 'API Ufficiali' : 'Scraper FBref')
                     ->color(fn (Season $record) => $record->season_year >= 2023 ? 'success' : 'warning'),
 
-                IconColumn::make('is_current')->label('Attiva')->boolean(),
+                IconColumn::make('is_current')
+                    ->label('Attiva')
+                    ->getStateUsing(fn (Season $record) => $record->end_date && now()->isAfter($record->end_date) ? false : $record->is_current)
+                    ->boolean(),
             ])
             ->actions([]);
     }

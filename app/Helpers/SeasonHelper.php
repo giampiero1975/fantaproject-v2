@@ -62,7 +62,12 @@ class SeasonHelper
     public static function getCompletedLookbackSeasons(int $years = 4): array
     {
         $current = self::getCurrentSeason();
-        $lastConcluded = $current - 1;
+        
+        // Verifica se la stagione corrente è terminata
+        $seasonModel = \App\Models\Season::where('season_year', $current)->first();
+        $isConcluded = $seasonModel && $seasonModel->end_date && now()->isAfter($seasonModel->end_date);
+        
+        $lastConcluded = $isConcluded ? $current : $current - 1;
         $seasons = [];
         
         for ($i = 0; $i < $years; $i++) {
