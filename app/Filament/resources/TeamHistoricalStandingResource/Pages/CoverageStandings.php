@@ -66,22 +66,6 @@ class CoverageStandings extends Page
                     Notification::make()->title('Errore')->body($e->getMessage())->danger()->send();
                 }
             }),
-            Action::make('autoSync')
-            ->label('Sincronizzazione Automatica Completa')
-            ->icon('heroicon-o-bolt')
-            ->color('warning')
-            ->requiresConfirmation()
-            ->modalDescription('Questa operazione scaricherà le classifiche per tutte le stagioni configurate nella pagina, sia per la Serie A che per la Serie B, calcolando automaticamente gli URL corretti di FBref. L\'operazione potrebbe richiedere alcuni minuti a causa dei tempi di caricamento delle pagine scraper.')
-            ->action(function (TeamDataService $service) {
-                try {
-                    $service->syncAllMissingCoverage($this->seasons);
-                    
-                    Notification::make()->title('Sincronizzazione batch completata!')->success()->send();
-                    $this->mount($service);
-                } catch (\Exception $e) {
-                    Notification::make()->title('Errore durante la sincronizzazione')->body($e->getMessage())->danger()->send();
-                }
-            }),
         ];
     }
 }

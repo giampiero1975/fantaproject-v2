@@ -69,6 +69,25 @@ class Dashboard extends BaseDashboard
         // Il target è il numero di squadre per stagione moltiplicato per il numero di stagioni di lookback
         $standingTarget = count($lookbackYears) * 20;
 
+        $perfectTeams = 0;
+        if (!empty($lookbackYears) && $currentSeasonModel) {
+            $lookbackCount = count($lookbackYears);
+            $activeTeamIds = $currentSeasonModel->teams()->pluck('teams.id')->toArray();
+            
+            if (!empty($activeTeamIds)) {
+                $perfectTeams = DB::table('team_historical_standings')
+                    ->whereIn('season_year', $lookbackYears)
+                    ->whereIn('team_id', $activeTeamIds)
+                    ->select('team_id')
+                    ->groupBy('team_id')
+                    ->havingRaw("COUNT(DISTINCT season_year) = ?", [$lookbackCount])
+                    ->get()
+                    ->count();
+            }
+        }
+        
+        $s3LastUpdate = DB::table('team_historical_standings')->max('updated_at');
+
         // ── Dati Tier ───────────────────────────────────────────────────────
         $teamWithTier = Team::whereNotNull('tier_globale')->count();
         $tierDist = Team::whereNotNull('tier_globale')
@@ -103,7 +122,7 @@ class Dashboard extends BaseDashboard
             'currentSeasonModel', 'lookbackStatus',
             'teamTotal', 'teamWithApi', 'apiMissingCount', 'fbrefIncomplete',
             'teamWithFbref', 'fbrefPct',
-            'standingCount', 'standingTarget',
+            'standingCount', 'standingTarget', 'perfectTeams', 's3LastUpdate',
             'teamWithTier', 'tierDist',
             'playerTotal', 'playerFanta', 'playerApi', 'playerOrphan',
             'lastListone', 'lastSync', 'pct',
