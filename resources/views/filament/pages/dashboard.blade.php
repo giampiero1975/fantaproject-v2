@@ -522,22 +522,6 @@
                             </p>
                         </div>
 
-                        <!-- CARD 2: ORFANI -->
-                        <div x-tooltip="'Giocatori presenti a Listone ma con associazione squadra fallita (es. team non in Serie A, svincolati o mismatch nome squadra).'"
-                             style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px; display: flex; flex-direction: column; justify-content: space-between; min-height: 150px; text-align: left; cursor: help;">
-                            <div>
-                                <p style="font-size: 10px; font-weight: 700; color: #94a3b8; text-transform: uppercase; margin: 0 0 8px 0; letter-spacing: 0.05em;">ORFANI (SENZA SQUADRA)</p>
-                                <div style="display: flex; align-items: center; gap: 8px; margin-top: 4px;">
-                                    <p style="font-size: 24px; font-weight: 900; color: {{ $playerOrphan > 0 ? '#ef4444' : '#10b981' }}; margin: 0;">{{ $playerOrphan }}</p>
-                                </div>
-                                <div style="margin-top: 8px; height: 8px; background-color: #e2e8f0; border-radius: 4px; overflow: hidden; border: 1px solid #e2e8f0;">
-                                    <div style="height: 100%; background: {{ $playerOrphan > 0 ? 'linear-gradient(to right, #ef4444, #b91c1c)' : '#10b981' }}; width: 100%; border-radius: 4px;"></div>
-                                </div>
-                            </div>
-                            <p style="font-size: 11px; color: #64748b; margin: 12px 0 0 0; line-height: 1.4;">
-                                Se il numero è alto, verifica che i nomi delle squadre nel Listone coincidano con quelli censiti a database.
-                            </p>
-                        </div>
 
                         <!-- CARD 3: ULTIMO IMPORT -->
                         <div x-tooltip="'Data e ora dell\'ultimo caricamento andato a buon fine del file Excel Listone.'"
