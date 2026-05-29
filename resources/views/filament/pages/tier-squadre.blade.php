@@ -57,10 +57,25 @@
         </div>
 
         {{-- Tabella Tier --}}
-        <div class="fi-section rounded-xl bg-white shadow-sm ring-1 ring-gray-950/5 dark:bg-gray-900 dark:ring-white/10 overflow-hidden">
-            <div class="p-4 border-b border-gray-200 dark:border-white/10 flex items-center justify-between">
-                <h3 class="font-semibold text-gray-950 dark:text-white">Classificazione Attuale</h3>
-                <span class="text-xs text-gray-500">{{ $this->getTeams()->count() }} squadre di Serie A</span>
+        <div x-data="{ selectedTier: 'all' }" class="fi-section rounded-xl bg-white shadow-sm ring-1 ring-gray-950/5 dark:bg-gray-900 dark:ring-white/10 overflow-hidden">
+            <div class="p-4 border-b border-gray-200 dark:border-white/10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div>
+                    <h3 class="font-semibold text-gray-950 dark:text-white">Classificazione Attuale</h3>
+                    <span class="text-xs text-gray-500">{{ $this->getTeams()->count() }} squadre di Serie A</span>
+                </div>
+                
+                {{-- Filtro Imbuto --}}
+                <div class="flex items-center gap-2">
+                    <x-filament::icon icon="heroicon-m-funnel" class="h-5 w-5 text-gray-400" />
+                    <select x-model="selectedTier" class="text-sm border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-white rounded-md shadow-sm focus:border-amber-500 focus:ring-amber-500 py-1.5 pl-3 pr-8">
+                        <option value="all">Tutti i Tier</option>
+                        <option value="1">Tier 1 (Top Club)</option>
+                        <option value="2">Tier 2 (Medio-Alto)</option>
+                        <option value="3">Tier 3 (Medio)</option>
+                        <option value="4">Tier 4 (Medio-Basso)</option>
+                        <option value="5">Tier 5 (Retrocessione)</option>
+                    </select>
+                </div>
             </div>
             <table class="w-full text-sm">
                 <thead class="bg-gray-50 dark:bg-gray-800 text-xs uppercase text-gray-500 dark:text-gray-400">
@@ -82,7 +97,7 @@
                                 default => ['label' => 'N/D', 'color' => 'bg-gray-100 text-gray-500', 'dot' => 'bg-gray-300'],
                             };
                         @endphp
-                        <tr class="hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                        <tr x-show="selectedTier === 'all' || selectedTier == '{{ $team->tier }}'" x-transition class="hover:bg-gray-50 dark:hover:bg-gray-800/50">
                             <td class="px-4 py-3">
                                 <div class="flex items-center gap-3">
                                     @if($team->crest_url)

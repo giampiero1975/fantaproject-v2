@@ -258,14 +258,9 @@ class TeamDataService
             4 => $thresholdsRaw['t4'],
         ];
 
-        // Definiamo il range massimo di stagioni da analizzare
+        // Definiamo il range massimo di stagioni da analizzare tramite il SeasonHelper
         $maxLookback = max($histLookback, $momLookback);
-        $currentYear = \App\Helpers\SeasonHelper::getCurrentSeason();
-        $lastConcluded = $currentYear - 1;
-        $seasons = [];
-        for ($i = 0; $i < $maxLookback; $i++) {
-            $seasons[] = $lastConcluded - $i;
-        }
+        $seasons = array_values(array_keys(\App\Helpers\SeasonHelper::getCompletedLookbackSeasons($maxLookback)));
 
         $logger->info("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
         $logger->info("🏆  HYBRID TIER CALCULATION (70% HIST / 30% MOM)");
