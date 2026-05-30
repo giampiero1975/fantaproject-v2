@@ -639,30 +639,5 @@ class FbrefScrapingService
         return $results;
     }
 
-
-    /**
-     * Algoritmo di similarità per matching "Lostone Storico"
-     */
-    private function namesAreSimilar(string $name1, string $name2): bool
-    {
-        $clean1 = $this->normalizeName($name1);
-        $clean2 = $this->normalizeName($name2);
-
-        // Caso 1: Match esatto post-norm
-        if ($clean1 === $clean2) return true;
-
-        // Caso 2: Similarità testuale (Soglia 80% per i giocatori)
-        similar_text($clean1, $clean2, $percent);
-
-        return $percent >= 80;
-    }
-
-    private function normalizeName(string $name): string
-    {
-        // Rimuove accenti e trasforma in minuscole
-        $name = strtolower(\Illuminate\Support\Str::ascii($name));
-        // Rimuove punteggiatura e spazi extra
-        $name = preg_replace('/[^a-z0-9 ]/', '', $name);
-        return trim($name);
-    }
+    // Rimossi i metodi namesAreSimilar e normalizeName per utilizzare quelli robusti del Trait FindsPlayerByName
 }

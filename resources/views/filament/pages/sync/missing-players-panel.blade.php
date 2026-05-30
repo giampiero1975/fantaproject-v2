@@ -4,7 +4,7 @@
             'tableFilters' => [
                 'roster_filter' => ['season_id' => $seasonId],
                 'fbref_status' => ['value' => '0'],
-                'trashed' => ['value' => 'with'],
+                'trashed' => ['value' => 'withTrashed'],
             ],
             'minimal' => 1
         ]);

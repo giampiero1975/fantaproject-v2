@@ -86,10 +86,22 @@ class FbrefSurgicalTeamSync extends Command
         }
 
         $this->info("🚀 AVVIO SESSIONE SYNC CHIRURGICO FBREF (Rose)");
-        $this->info("Stagione: " . SeasonHelper::formatYear($seasonYear));
+        $this->info("Stagione: " . \App\Helpers\SeasonHelper::formatYear($seasonYear));
         $this->info("Target: " . ($isAll ? "Intera Stagione (" . $teams->count() . " team)" : "Team: {$teams->first()->name}"));
+
+        // Inizializzazione Log Persistente (Log Specifico in UI)
+        $importLog = \App\Models\ImportLog::create([
+            'import_type' => 'fbref_surgical_sync',
+            'original_file_name' => "Surgical Sync: " . ($isAll ? "Multi-Team" : $teams->first()->name),
+            'season_id' => $season->id,
+            'status' => 'avviato',
+            'details' => "Sync chirurgico avviato per " . ($isAll ? "{$teams->count()} team" : $teams->first()->name) . ".",
+            'rows_processed' => 0,
+            'rows_updated' => 0,
+        ]);
+
         // Inizializzazione Proxy Manager
-        $proxyManager = app(ProxyManagerService::class);
+        $proxyManager = app(\App\Services\ProxyManagerService::class);
 
         $totalProcessed = 0;
         $totalUpdated = 0;
@@ -106,13 +118,21 @@ class FbrefSurgicalTeamSync extends Command
 
             $this->comment("📊 Gap rilevato: {$missingCount}/{$rosterCount} calciatori senza fbref_id.");
 
+            if ($missingCount === 0) {
+                $this->info("✅ Nessun gap rilevato. La squadra è già mappata al 100%. Salto (Risparmio Credito) 💸");
+                \Illuminate\Support\Facades\Log::channel('fbref_surgical')->info("[FbrefSurgicalTeamSync] {$team->name}: Saltata. Gap 0 (Copertura 100%). Nessun proxy consumato.");
+                continue;
+            }
+
             $url = $this->buildSurgicalUrl($team, $seasonYear);
             if (!$url) {
                 $this->error("❌ Impossibile generare URL per {$team->name}");
+                \Illuminate\Support\Facades\Log::error("[FbrefSurgicalTeamSync] {$team->name}: Impossibile generare URL.");
                 continue;
             }
 
             $this->line("🌐 Scraping: {$url}");
+            \Illuminate\Support\Facades\Log::channel('fbref_surgical')->info("[FbrefSurgicalTeamSync] {$team->name}: Avvio scraping ({$missingCount} mancanti su {$rosterCount}).");
             
             $maxRetries = 3;
             $attempt = 0;
@@ -183,13 +203,29 @@ class FbrefSurgicalTeamSync extends Command
             );
 
             $this->line("✨ Match: {$syncResults['matched']} | Aggiornati: {$syncResults['updated']} | Noise (Ignorati): {$syncResults['noise']}");
+            \Illuminate\Support\Facades\Log::channel('fbref_surgical')->info("[FbrefSurgicalTeamSync] {$team->name}: Completato. Match: {$syncResults['matched']} | Aggiornati: {$syncResults['updated']} | Noise: {$syncResults['noise']}");
             
+            if (!empty($syncResults['log'])) {
+                foreach ($syncResults['log'] as $logLine) {
+                    $this->line("   " . $logLine);
+                    \Illuminate\Support\Facades\Log::channel('fbref_surgical')->info("   " . $logLine);
+                }
+            }
+
             $totalProcessed += $syncResults['total'] ?? 0;
             $totalUpdated += $syncResults['updated'] ?? 0;
         }
 
-        $summary = "🏁 Operazione conclusa. Processati: {$totalProcessed}, Aggiornati: {$totalUpdated}";
-        $this->info("\n" . $summary);
+        $this->line("");
+        $this->info("🏁 Operazione conclusa. Processati: $totalProcessed, Aggiornati: $totalUpdated");
+
+        // Aggiorna il Log Persistente
+        $importLog->update([
+            'status' => $this->option('dry-run') ? 'simulato' : 'successo',
+            'rows_processed' => $totalProcessed,
+            'rows_updated' => $totalUpdated,
+            'details' => "Elaborati $totalProcessed, aggiornati $totalUpdated calciatori." . ($this->option('dry-run') ? ' [MODALITÀ DRY-RUN]' : ''),
+        ]);
         
         return Command::SUCCESS;
     }

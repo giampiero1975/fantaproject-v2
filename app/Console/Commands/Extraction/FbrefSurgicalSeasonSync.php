@@ -108,6 +108,7 @@ class FbrefSurgicalSeasonSync extends Command
 
         if ($missingCount === 0 && !$this->option('force')) {
             $this->line("✅ Nessun gap rilevato (Copertura 100%). Salto squadra.");
+            $this->log("✅ {$team->name}: Nessun gap rilevato (Copertura 100%). Salto.");
             return null;
         }
 
@@ -190,6 +191,13 @@ class FbrefSurgicalSeasonSync extends Command
 
         $this->line("✨ Match: {$syncResults['matched']} | Aggiornati: {$syncResults['updated']} | Noise (Ignorati): {$syncResults['noise']}");
         $this->log("✨ Match: {$syncResults['matched']} | Aggiornati: {$syncResults['updated']} | Noise: {$syncResults['noise']}");
+
+        if (!empty($syncResults['log'])) {
+            foreach ($syncResults['log'] as $logLine) {
+                $this->line("   " . $logLine);
+                $this->log("   " . $logLine);
+            }
+        }
 
         return $syncResults;
     }
