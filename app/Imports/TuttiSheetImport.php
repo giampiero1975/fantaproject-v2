@@ -113,6 +113,7 @@ class TuttiSheetImport implements ToCollection, WithHeadingRow, SkipsOnError
                     'fanta_platform_id' => $fantaPlatformId,
                     'role' => $normalizedRoles['role_main'],
                     'detailed_position' => $normalizedRoles['detailed_position'],
+                    'creation_source' => 'L',
                 ]);
                 $this->createdCount++;
                 // Aggiorniamo la collection in RAM per i prossimi cicli
@@ -149,6 +150,15 @@ class TuttiSheetImport implements ToCollection, WithHeadingRow, SkipsOnError
             );
 
             $this->processedPlayerIds[] = $player->id;
+        }
+
+        // --- MIETITURA (Soft Delete) ---
+        // I giocatori che erano attivi ma NON sono nel Listone attuale vengono "cestinati"
+        if (!empty($this->processedPlayerIds)) {
+            $deletedCount = Player::whereNull('deleted_at')
+                ->whereNotIn('id', $this->processedPlayerIds)
+                ->update(['deleted_at' => now()]);
+            Log::info("--- [MIETITURA] {$deletedCount} giocatori non trovati nel listone sono stati messi in Soft Delete ---");
         }
 
         Log::info("--- [ERP-FAST] COMPLETATO: Creati: {$this->createdCount} | Trasferiti: {$this->transferCount} | Confermati: {$this->confirmedCount} ---");
